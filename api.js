@@ -1,5 +1,6 @@
 /** localStorage an toàn + gọi Apps Script + xả hàng đợi. Phụ thuộc: config.js, state.js. */
 var QUEUE_KEY = "cupping:queue";
+var API_TIMEOUT_MS = 45000; // POST treo (mất mạng nửa chừng) không được giữ flushing_ mãi (spec F4)
 
 // localStorage có thể ném lỗi (chế độ riêng tư, bộ nhớ đầy) — không bao giờ làm sập trang.
 function storeGet(key, fallback) {
@@ -16,14 +17,21 @@ function storeDel(key) {
 // cookie Google chéo miền → tránh đúng lỗi "không thể mở tệp" của máy nhiều tài khoản.
 function apiPost(action, sessionId, token, extra) {
   var body = Object.assign({ action: action, session_id: sessionId, token: token }, extra || {});
+  // Trình duyệt cũ không có AbortController → bỏ qua timeout, fetch vẫn chạy bình thường.
+  var controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+  var timer = controller ? setTimeout(function () { controller.abort(); }, API_TIMEOUT_MS) : null;
   return fetch(CUPPING_API_URL, {
     method: "POST", redirect: "follow", credentials: "omit",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
+    signal: controller ? controller.signal : undefined
   })
     .then(function (r) { return r.json(); })
     .then(function (j) { return j && typeof j === "object" ? j : { ok: false, error: "SERVER_ERROR" }; })
-    .catch(function () { return { ok: false, error: "NETWORK" }; });
+    // abort() ném AbortError → rơi vào đây → NETWORK, an toàn vì server trả "stale" cho
+    // revision nó đã có sẵn nếu request thật ra đã tới nơi trước khi bị huỷ ở phía client.
+    .catch(function () { return { ok: false, error: "NETWORK" }; })
+    .finally(function () { if (timer) clearTimeout(timer); });
 }
 
 function enqueue(item) { storeSet(QUEUE_KEY, queueUpsert(storeGet(QUEUE_KEY, []), item)); }
