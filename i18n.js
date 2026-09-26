@@ -17,7 +17,7 @@ var STRINGS = {
     yourName: "Tên của bạn", namePh: "Ví dụ: Lan", guestHint: "Không cần đăng nhập Google. Tên chỉ để ghi nhận điểm của bạn.",
     enter: "Vào bàn cupping →", needName: "Nhập tên của bạn trước.", needStaff: "Chọn tên của bạn trước.",
     changeUser: "Đổi người chấm", changeConfirm: "Đổi người chấm trên máy này? Bản nháp chưa bấm Xong sẽ bị xoá.",
-    noSamples: "Phiên chưa có mẫu — chờ người điều phối thêm mẫu."
+    noSamples: "Phiên chưa có mẫu — chờ người điều phối thêm mẫu.", retry: "Thử lại"
   },
   en: {
     loading: "Loading session…", synced: "All saved", saving: "Saving", offline: "Waiting to sync — offline",
@@ -36,7 +36,7 @@ var STRINGS = {
     yourName: "Your name", namePh: "e.g. Lan", guestHint: "No Google login needed. Your name only labels your scores.",
     enter: "Go to the cupping table →", needName: "Enter your name first.", needStaff: "Pick your name first.",
     changeUser: "Change taster", changeConfirm: "Change the taster on this phone? Unsent drafts will be cleared.",
-    noSamples: "No samples yet — wait for the host to add them."
+    noSamples: "No samples yet — wait for the host to add them.", retry: "Retry"
   }
 };
 

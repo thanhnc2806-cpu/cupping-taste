@@ -5,13 +5,14 @@
 (function () {
   "use strict";
   var root = document.getElementById("app");
+  var toastEl = document.getElementById("toast");
   var S = {
     lang: storeGet("cupping:lang", "vi") === "en" ? "en" : "vi",
     sid: null, token: null, sess: null, identity: null, table: null,
-    screen: "loading", errorCode: "",
+    screen: "loading", errorCode: "", errorRetryable: false,
     role: "staff", pickStaff: null, guestNameDraft: "",
     sheet: "", zoom: [], pending: null, q: 0, noteDraft: "",
-    toast: "", toastTimer: null, offline: false, lastWheel: null
+    toastTimer: null, offline: false, lastWheel: null
   };
 
   var ICON = {
@@ -54,14 +55,15 @@
     });
   }
   function persist() { storeSet("cupping:table:" + S.sid, { drafts: S.table.drafts, saved: S.table.saved }); }
-  // soft=true dùng softRender() thay vì render() — cho toast do NỀN kích hoạt (vd sync() mỗi 15s),
-  // để không cướp tap/gõ đang dở trong sheet "card" hay màn "entry" (xem softRender()).
-  function toast(msg, soft) {
-    var draw = soft ? softRender : render;
-    S.toast = msg;
+  // Toast sống trong #toast, NGOÀI #app — render() vẽ lại toàn bộ #app nên nếu toast còn
+  // nằm trong đó, mỗi lần hiện/ẩn nó sẽ cướp mất ô đang gõ hoặc đóng sheet đang mở (spec F5).
+  // toast() vì vậy KHÔNG BAO GIỜ gọi render()/softRender() — người gọi tự render() riêng
+  // nếu bản thân thao tác đó cũng đổi state khác (xem sync() nhánh "rejected").
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
     if (S.toastTimer) clearTimeout(S.toastTimer);
-    S.toastTimer = setTimeout(function () { S.toast = ""; draw(); }, 2400);
-    draw();
+    S.toastTimer = setTimeout(function () { toastEl.classList.remove("show"); }, 2400);
   }
   function closeOverlay() { S.sheet = ""; S.zoom = []; S.pending = null; }
   function edit(mutator) { S.table = editCurrent(S.table, mutator); persist(); render(); }
@@ -88,7 +90,7 @@
     S.screen = S.identity ? "table" : "entry";
   }
 
-  function showError(code) { S.screen = "error"; S.errorCode = code; render(); }
+  function showError(code, retryable) { S.screen = "error"; S.errorCode = code; S.errorRetryable = !!retryable; render(); }
 
   function boot() {
     var link = readLink();
@@ -98,6 +100,19 @@
     var cached = storeGet("cupping:sess:" + S.sid, null);
     if (cached) { S.sess = cached; startTable(); }
     render();
+    fetchSession();
+    window.addEventListener("online", sync);
+    // Lỗi mạng/máy chủ lúc mở lần đầu, CHƯA có cache — không bắt người dùng tự bấm Thử lại
+    // nếu mạng tự có lại trước (spec F3). Chỉ tự gọi lại khi màn đang đứng ở lỗi retryable đó.
+    window.addEventListener("online", function () {
+      if (S.screen === "error" && S.errorRetryable) fetchSession();
+    });
+    setInterval(sync, 15000);
+    setInterval(refreshSamples, 30000);
+  }
+
+  // Gọi getSession — tách khỏi boot() để gọi lại được (nút "Thử lại" hoặc sự kiện online).
+  function fetchSession() {
     apiPost("getSession", S.sid, S.token).then(function (r) {
       if (r.ok) {
         S.sess = { session: r.session, samples: r.samples, staff: r.staff, taxonomy: r.taxonomy, taxonomy_version: r.taxonomy_version };
@@ -105,13 +120,14 @@
         startTable(); render(); sync();
       } else if (r.error === "NETWORK" && S.sess) {
         S.offline = true; render();
+      } else if (isRetryable(r.error) && !S.sess) {
+        // Chưa có cache để hiện tạm — màn lỗi phải cho người dùng đường thoát rõ ràng,
+        // không chỉ hứa suông "sẽ tự gửi lại" (spec F3).
+        showError(r.error, true);
       } else {
         showError(r.error);
       }
     });
-    window.addEventListener("online", sync);
-    setInterval(sync, 15000);
-    setInterval(refreshSamples, 30000);
   }
 
   function softRender() { if (S.sheet !== "card" && S.screen !== "entry") render(); } // không cướp ô đang gõ
@@ -134,7 +150,8 @@
       if (ev.type === "rejected" && ev.session_id === S.sid && S.table) {
         S.table = unmarkSaved(S.table, ev.sample_id, ev.revision);
         persist();
-        toast(sampleCode(ev.sample_id) + ": " + errorText(S.lang, ev.error), true); // soft — sync() chạy nền, không phải do người dùng bấm
+        softRender(); // gỡ dấu ✓ giả trên chip mẫu — tách khỏi toast, toast tự vẽ ở lớp riêng
+        toast(sampleCode(ev.sample_id) + ": " + errorText(S.lang, ev.error));
         return;
       }
       softRender();
@@ -301,14 +318,14 @@
   }
 
   function viewError() {
-    return '<div class="center"><div><p>' + esc(errorText(S.lang, S.errorCode)) + '</p>' + langToggle() + '</div></div>';
+    var retryBtn = S.errorRetryable ? '<button type="button" class="cta" data-act="retryBoot">' + esc(T("retry")) + '</button>' : "";
+    return '<div class="center"><div><p>' + esc(errorText(S.lang, S.errorCode)) + '</p>' + retryBtn + langToggle() + '</div></div>';
   }
 
   function render() {
     var h = S.screen === "error" ? viewError()
       : S.screen === "loading" ? '<div class="center muted">' + esc(T("loading")) + '</div>'
       : S.screen === "entry" ? viewEntry() : viewTable();
-    if (S.toast) h += '<div class="toast" role="status">' + esc(S.toast) + '</div>';
     root.innerHTML = h;
   }
 
@@ -374,6 +391,7 @@
     var act = el.getAttribute("data-act"), v = el.getAttribute("data-v");
     switch (act) {
       case "lang": S.lang = v === "en" ? "en" : "vi"; storeSet("cupping:lang", S.lang); render(); break;
+      case "retryBoot": fetchSession(); break;
       case "role": S.role = v; render(); break;
       case "pickStaff": S.pickStaff = el.getAttribute("data-id"); render(); break;
       case "enter": enter(); break;
