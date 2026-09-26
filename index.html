@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Cupping — thử kết nối</title>
+</head>
+<body style="font-family: system-ui, sans-serif; background: #121417; color: #F2EDE6; padding: 24px">
+<h1 style="font-size: 20px">Thử kết nối Apps Script</h1>
+<button id="go" type="button" style="min-height: 48px; padding: 0 20px; font-size: 16px">Thử kết nối</button>
+<pre id="out" style="white-space: pre-wrap; margin-top: 16px"></pre>
+<script src="config.js"></script>
+<script>
+document.getElementById("go").addEventListener("click", function () {
+  var out = document.getElementById("out");
+  out.textContent = "Đang gọi…";
+  fetch(CUPPING_API_URL, {
+    method: "POST", redirect: "follow", credentials: "omit",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ action: "getSession", session_id: "thu-ket-noi", token: "x" })
+  })
+    .then(function (r) { return r.text(); })
+    .then(function (t) { out.textContent = "Nhận được:\n" + t; })
+    .catch(function (e) { out.textContent = "LỖI: " + e; });
+});
+</script>
+</body>
+</html>
