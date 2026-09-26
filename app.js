@@ -54,11 +54,14 @@
     });
   }
   function persist() { storeSet("cupping:table:" + S.sid, { drafts: S.table.drafts, saved: S.table.saved }); }
-  function toast(msg) {
+  // soft=true dùng softRender() thay vì render() — cho toast do NỀN kích hoạt (vd sync() mỗi 15s),
+  // để không cướp tap/gõ đang dở trong sheet "card" hay màn "entry" (xem softRender()).
+  function toast(msg, soft) {
+    var draw = soft ? softRender : render;
     S.toast = msg;
     if (S.toastTimer) clearTimeout(S.toastTimer);
-    S.toastTimer = setTimeout(function () { S.toast = ""; render(); }, 2400);
-    render();
+    S.toastTimer = setTimeout(function () { S.toast = ""; draw(); }, 2400);
+    draw();
   }
   function closeOverlay() { S.sheet = ""; S.zoom = []; S.pending = null; }
   function edit(mutator) { S.table = editCurrent(S.table, mutator); persist(); render(); }
@@ -131,7 +134,7 @@
       if (ev.type === "rejected" && ev.session_id === S.sid && S.table) {
         S.table = unmarkSaved(S.table, ev.sample_id, ev.revision);
         persist();
-        toast(sampleCode(ev.sample_id) + ": " + errorText(S.lang, ev.error));
+        toast(sampleCode(ev.sample_id) + ": " + errorText(S.lang, ev.error), true); // soft — sync() chạy nền, không phải do người dùng bấm
         return;
       }
       softRender();
