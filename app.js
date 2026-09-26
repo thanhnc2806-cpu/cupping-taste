@@ -334,6 +334,7 @@
     var d = draft(), miss = missingScores(d);
     if (miss.length) {
       S.sheet = "score"; S.q = SCORE_FIELDS.indexOf(miss[0]);
+      render(); // mở sheet điểm còn thiếu — toast() không tự vẽ lại nữa (F5 round 2)
       toast(T("missing") + miss.map(fieldName).join(", "));
       return;
     }
@@ -344,6 +345,7 @@
     S.table = markSaved(S.table, S.table.cur, rev);
     S.table = selectSample(S.table, nextUnsaved(S.table));
     persist(); closeOverlay();
+    render(); // phản hồi ngay tại chỗ — không chờ sync() (network round trip) mới thấy chip đổi (F5 round 2)
     toast(T("queued").replace("{code}", code) + " · " + T("avg") + " " + fmt1(avg));
     sync();
   }
@@ -427,6 +429,7 @@
           var code = S.pending;
           S.table = editCurrent(S.table, setDescriptor(code, a.value)); persist();
           closeOverlay(); // bánh xe đóng sau mỗi lần chọn (bản mẫu đã duyệt)
+          render(); // đóng bánh xe/scrim ngay — toast() không còn tự vẽ lại (F5 round 2)
           toast("+ " + label(code) + " " + dots(a.value));
         }
         break;
