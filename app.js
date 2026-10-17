@@ -8,11 +8,13 @@
   var toastEl = document.getElementById("toast");
   var S = {
     lang: storeGet("cupping:lang", "vi") === "en" ? "en" : "vi",
+    theme: storeGet("cupping:theme", "dark") === "light" ? "light" : "dark",
     sid: null, token: null, sess: null, identity: null, table: null,
     screen: "loading", errorCode: "", errorRetryable: false,
     role: "staff", pickStaff: null, guestNameDraft: "",
     sheet: "", zoom: [], pending: null, q: 0, noteDraft: "",
-    toastTimer: null, offline: false, lastWheel: null
+    toastTimer: null, offline: false, lastWheel: null,
+    soloCount: 5, joinDraft: ""
   };
 
   var ICON = {
@@ -69,15 +71,33 @@
   function edit(mutator) { S.table = editCurrent(S.table, mutator); persist(); render(); }
 
   // ---------- khởi động ----------
+  function parseSessionInput(str) {
+    if (!str) return null;
+    str = ("" + str).trim();
+    if (!str) return null;
+    var hashIndex = str.indexOf("#");
+    var queryString = hashIndex >= 0 ? str.slice(hashIndex + 1) : (str.indexOf("s=") >= 0 ? str : "");
+    if (queryString) {
+      var p = new URLSearchParams(queryString.replace(/^#/, ""));
+      var s = p.get("s"), tk = p.get("t");
+      if (s && tk) return { s: s, t: tk };
+    }
+    var parts = str.split(/[:\s]+/);
+    if (parts.length >= 2 && parts[0] && parts[1]) {
+      return { s: parts[0], t: parts[1] };
+    }
+    return null;
+  }
+
   function readLink() {
     var p = new URLSearchParams(location.hash.replace(/^#/, ""));
     var s = p.get("s"), tk = p.get("t");
     if (s && tk) {
-      storeSet("cupping:last", { s: s, t: tk });
+      storeSet("cupping:last", { s: s, t: tk, name: s });
       history.replaceState(null, "", location.pathname + location.search); // xoá token khỏi thanh địa chỉ
       return { s: s, t: tk };
     }
-    return storeGet("cupping:last", null);
+    return null;
   }
 
   function startTable() {
@@ -92,18 +112,82 @@
 
   function showError(code, retryable) { S.screen = "error"; S.errorCode = code; S.errorRetryable = !!retryable; render(); }
 
-  function boot() {
-    var link = readLink();
-    if (!link) { showError("BAD_LINK"); return; }
-    S.sid = link.s; S.token = link.t;
+  function openSession(sid, token) {
+    S.sid = sid; S.token = token;
     S.identity = storeGet("cupping:id:" + S.sid, null);
     var cached = storeGet("cupping:sess:" + S.sid, null);
-    if (cached) { S.sess = cached; startTable(); }
+    if (cached) {
+      S.sess = cached;
+      startTable();
+      render();
+    } else {
+      S.screen = "loading";
+      render();
+    }
+    if (token === "solo") {
+      if (!S.sess) startSoloSession(S.soloCount || 5);
+    } else {
+      fetchSession();
+    }
+  }
+
+  function startSoloSession(sampleCount) {
+    var count = sampleCount || S.soloCount || 5;
+    var now = new Date();
+    var day = now.getDate() < 10 ? "0" + now.getDate() : now.getDate();
+    var month = (now.getMonth() + 1) < 10 ? "0" + (now.getMonth() + 1) : (now.getMonth() + 1);
+    var dateStr = day + "/" + month;
+    var sid = "solo_" + Date.now();
+    var samples = [];
+    for (var i = 1; i <= count; i++) {
+      var code = "A" + (i < 10 ? "0" + i : i);
+      samples.push({ sample_id: "s_" + i, blind_code: code });
+    }
+    var tax = (typeof TAXONOMY_DEFAULT !== "undefined" && Array.isArray(TAXONOMY_DEFAULT) && TAXONOMY_DEFAULT.length)
+      ? TAXONOMY_DEFAULT
+      : (S.sess && S.sess.taxonomy ? S.sess.taxonomy : []);
+    var taxVer = typeof TAXONOMY_VERSION !== "undefined" ? TAXONOMY_VERSION : "sca-2024";
+
+    var sessName = (S.lang === "en" ? "Solo Cupping · " : "Cupping tự do · ") + dateStr;
+    S.sid = sid;
+    S.token = "solo";
+    S.sess = {
+      session: {
+        id: sid,
+        name: sessName,
+        purpose: "QC nội bộ"
+      },
+      samples: samples,
+      staff: [
+        { id: "thanh", name: "Thanh (Head of Roaster)" },
+        { id: "minh", name: "Minh" },
+        { id: "an", name: "An" },
+        { id: "vinh", name: "Vinh" }
+      ],
+      taxonomy: tax,
+      taxonomy_version: taxVer
+    };
+    storeSet("cupping:sess:" + sid, S.sess);
+    storeSet("cupping:last", { s: sid, t: "solo", name: sessName });
+
+    var savedId = storeGet("cupping:id:solo", null);
+    S.identity = savedId || { type: "staff", staff_id: "thanh", name: "Thanh" };
+    storeSet("cupping:id:" + sid, S.identity);
+
+    startTable();
     render();
-    fetchSession();
+  }
+
+  function boot() {
+    document.body.classList.toggle("light-mode", S.theme === "light");
+    var link = readLink();
+    if (link) {
+      openSession(link.s, link.t);
+    } else {
+      S.screen = "hub";
+      render();
+    }
     window.addEventListener("online", sync);
-    // Lỗi mạng/máy chủ lúc mở lần đầu, CHƯA có cache — không bắt người dùng tự bấm Thử lại
-    // nếu mạng tự có lại trước (spec F3). Chỉ tự gọi lại khi màn đang đứng ở lỗi retryable đó.
     window.addEventListener("online", function () {
       if (S.screen === "error" && S.errorRetryable) fetchSession();
     });
@@ -133,7 +217,7 @@
   function softRender() { if (S.sheet !== "card" && S.screen !== "entry") render(); } // không cướp ô đang gõ
 
   function refreshSamples() {
-    if (!S.sess || S.screen !== "table") return;
+    if (!S.sess || S.screen !== "table" || S.token === "solo") return;
     apiPost("listSamples", S.sid, S.token).then(function (r) {
       if (!r.ok) return;
       S.sess.samples = r.samples;
@@ -160,14 +244,216 @@
 
   // ---------- màn ----------
   function langToggle() {
-    return '<div class="lang">' +
+    return '<div class="top-controls">' +
+      '<button type="button" class="theme-btn" data-act="theme" aria-label="' + esc(T("toggleTheme")) + '">' + (S.theme === "light" ? "🌙" : "☀️") + '</button>' +
+      '<div class="lang">' +
       '<button type="button" data-act="lang" data-v="vi" aria-pressed="' + (S.lang === "vi") + '" class="' + (S.lang === "vi" ? "on" : "") + '">VI</button>' +
-      '<button type="button" data-act="lang" data-v="en" aria-pressed="' + (S.lang === "en") + '" class="' + (S.lang === "en" ? "on" : "") + '">EN</button></div>';
+      '<button type="button" data-act="lang" data-v="en" aria-pressed="' + (S.lang === "en") + '" class="' + (S.lang === "en" ? "on" : "") + '">EN</button></div>' +
+      '</div>';
+  }
+
+  function renderRadarSvg(scores, isLight) {
+    var cx = 140, cy = 90, maxR = 64;
+    var n = SCORE_FIELDS.length;
+    var html = '';
+    var ringColor = isLight ? '#DDD6CC' : '#2A303C';
+    var textColor = isLight ? '#555555' : '#C5BCB2';
+    for (var r = 1; r <= 3; r++) {
+      var curR = (maxR / 3) * r;
+      var pts = [];
+      for (var i = 0; i < n; i++) {
+        var angle = (Math.PI * 2 / n) * i - Math.PI / 2;
+        pts.push((cx + curR * Math.cos(angle)).toFixed(1) + "," + (cy + curR * Math.sin(angle)).toFixed(1));
+      }
+      html += '<polygon points="' + pts.join(' ') + '" fill="none" stroke="' + ringColor + '" stroke-width="1" />';
+    }
+    SCORE_FIELDS.forEach(function (f, i) {
+      var angle = (Math.PI * 2 / n) * i - Math.PI / 2;
+      var x = cx + maxR * Math.cos(angle);
+      var y = cy + maxR * Math.sin(angle);
+      html += '<line x1="' + cx + '" y1="' + cy + '" x2="' + x.toFixed(1) + '" y2="' + y.toFixed(1) + '" stroke="' + ringColor + '" stroke-width="1" />';
+      var tx = cx + (maxR + 15) * Math.cos(angle);
+      var ty = cy + (maxR + 11) * Math.sin(angle);
+      var fieldObj = FIELDS.filter(function (x) { return x.key === f; })[0];
+      var lbl = fieldObj ? (S.lang === "en" ? fieldObj.short_en : fieldObj.short_vi) : f;
+      html += '<text x="' + tx.toFixed(1) + '" y="' + ty.toFixed(1) + '" fill="' + textColor + '" font-size="9" font-weight="600" text-anchor="middle" dominant-baseline="middle">' + esc(lbl) + '</text>';
+    });
+    var hasAny = false;
+    var dataPts = [];
+    SCORE_FIELDS.forEach(function (f, i) {
+      var angle = (Math.PI * 2 / n) * i - Math.PI / 2;
+      var val = typeof scores[f] === "number" ? scores[f] : 0;
+      if (val > 0) hasAny = true;
+      var valR = (val / 9) * maxR;
+      dataPts.push((cx + valR * Math.cos(angle)).toFixed(1) + "," + (cy + valR * Math.sin(angle)).toFixed(1));
+    });
+    if (hasAny) {
+      html += '<polygon points="' + dataPts.join(' ') + '" fill="rgba(82, 183, 136, 0.28)" stroke="#52B788" stroke-width="2" />';
+      SCORE_FIELDS.forEach(function (f, i) {
+        if (typeof scores[f] === "number") {
+          var angle = (Math.PI * 2 / n) * i - Math.PI / 2;
+          var valR = (scores[f] / 9) * maxR;
+          html += '<circle cx="' + (cx + valR * Math.cos(angle)).toFixed(1) + '" cy="' + (cy + valR * Math.sin(angle)).toFixed(1) + '" r="3.5" fill="#52B788" stroke="#FFF" stroke-width="1.2" />';
+        }
+      });
+    }
+    return '<svg viewBox="0 0 280 180" class="radar-svg" role="img" aria-label="CVA Radar Chart">' + html + '</svg>';
+  }
+
+  var SAMPLE_COLORS = ["#52B788", "#E5A970", "#6BA8F2", "#9B5DE5", "#E76F51", "#F4A261", "#2A9D8F"];
+
+  function renderMultiRadarSvg(samples, isLight) {
+    var cx = 140, cy = 90, maxR = 64;
+    var n = SCORE_FIELDS.length;
+    var html = '';
+    var ringColor = isLight ? '#DDD6CC' : '#2A303C';
+    var textColor = isLight ? '#555555' : '#C5BCB2';
+    for (var r = 1; r <= 3; r++) {
+      var curR = (maxR / 3) * r;
+      var pts = [];
+      for (var i = 0; i < n; i++) {
+        var angle = (Math.PI * 2 / n) * i - Math.PI / 2;
+        pts.push((cx + curR * Math.cos(angle)).toFixed(1) + "," + (cy + curR * Math.sin(angle)).toFixed(1));
+      }
+      html += '<polygon points="' + pts.join(' ') + '" fill="none" stroke="' + ringColor + '" stroke-width="1" />';
+    }
+    SCORE_FIELDS.forEach(function (f, i) {
+      var angle = (Math.PI * 2 / n) * i - Math.PI / 2;
+      var x = cx + maxR * Math.cos(angle);
+      var y = cy + maxR * Math.sin(angle);
+      html += '<line x1="' + cx + '" y1="' + cy + '" x2="' + x.toFixed(1) + '" y2="' + y.toFixed(1) + '" stroke="' + ringColor + '" stroke-width="1" />';
+      var tx = cx + (maxR + 15) * Math.cos(angle);
+      var ty = cy + (maxR + 11) * Math.sin(angle);
+      var fieldObj = FIELDS.filter(function (x) { return x.key === f; })[0];
+      var lbl = fieldObj ? (S.lang === "en" ? fieldObj.short_en : fieldObj.short_vi) : f;
+      html += '<text x="' + tx.toFixed(1) + '" y="' + ty.toFixed(1) + '" fill="' + textColor + '" font-size="9" font-weight="600" text-anchor="middle" dominant-baseline="middle">' + esc(lbl) + '</text>';
+    });
+
+    samples.slice(0, 5).forEach(function (s, sIdx) {
+      var color = SAMPLE_COLORS[sIdx % SAMPLE_COLORS.length];
+      var dataPts = [];
+      var hasAny = false;
+      SCORE_FIELDS.forEach(function (f, i) {
+        var angle = (Math.PI * 2 / n) * i - Math.PI / 2;
+        var val = typeof s.scores[f] === "number" ? s.scores[f] : 0;
+        if (val > 0) hasAny = true;
+        var valR = (val / 9) * maxR;
+        dataPts.push((cx + valR * Math.cos(angle)).toFixed(1) + "," + (cy + valR * Math.sin(angle)).toFixed(1));
+      });
+      if (hasAny) {
+        html += '<polygon points="' + dataPts.join(' ') + '" fill="' + color + '" fill-opacity="0.16" stroke="' + color + '" stroke-width="2" />';
+        SCORE_FIELDS.forEach(function (f, i) {
+          if (typeof s.scores[f] === "number") {
+            var angle = (Math.PI * 2 / n) * i - Math.PI / 2;
+            var valR = (s.scores[f] / 9) * maxR;
+            html += '<circle cx="' + (cx + valR * Math.cos(angle)).toFixed(1) + '" cy="' + (cy + valR * Math.sin(angle)).toFixed(1) + '" r="3" fill="' + color + '" stroke="#FFF" stroke-width="1" />';
+          }
+        });
+      }
+    });
+
+    return '<svg viewBox="0 0 280 180" class="radar-svg" role="img" aria-label="CVA Multi Radar Chart">' + html + '</svg>';
+  }
+
+  function getRankedSamples() {
+    if (!S.table || !S.table.order) return [];
+    var list = S.table.order.map(function (id) {
+      var saved = S.table.saved && S.table.saved[id];
+      var d = saved ? saved.draft : (S.table.drafts[id] || emptyDraft());
+      var avg = saved ? saved.avg : liveAverage(d);
+      var isSaved = !!saved;
+      var hasDefect = Object.keys(d.defects || {}).length > 0;
+      return {
+        id: id,
+        code: sampleCode(id),
+        draft: d,
+        scores: d.scores || {},
+        descriptors: d.descriptors || {},
+        defects: d.defects || {},
+        note: d.note || "",
+        vibe: d.vibe || "",
+        avg: avg,
+        isSaved: isSaved,
+        hasDefect: hasDefect
+      };
+    });
+    list.sort(function (a, b) {
+      if (a.avg === null && b.avg === null) return 0;
+      if (a.avg === null) return 1;
+      if (b.avg === null) return -1;
+      return b.avg - a.avg;
+    });
+    return list;
+  }
+
+  function generateReportText() {
+    var ranked = getRankedSamples();
+    var lines = [];
+    var now = new Date();
+    var dateStr = (now.getDate() < 10 ? "0" + now.getDate() : now.getDate()) + "/" +
+                  ((now.getMonth() + 1) < 10 ? "0" + (now.getMonth() + 1) : (now.getMonth() + 1)) + "/" +
+                  now.getFullYear();
+    lines.push("☕ KẾT QUẢ CUPPING · INTENSO ROASTERY");
+    lines.push("Phiên: " + (S.sess ? S.sess.session.name : "Cupping"));
+    lines.push("Người nếm: " + (S.identity ? S.identity.name : "Thợ rang"));
+    lines.push("Ngày: " + dateStr);
+    lines.push("----------------------------------");
+    var medals = ["🥇", "🥈", "🥉"];
+    ranked.forEach(function (s, idx) {
+      var badge = idx < 3 ? medals[idx] : "•";
+      var scoreStr = s.avg !== null ? fmt1(s.avg) + " điểm" : "Chưa chấm";
+      var vibeStr = s.vibe === "like" ? " (Thích 😍)" : (s.vibe === "dislike" ? " (Lệch 😕)" : (s.vibe === "neutral" ? " (Vừa 😐)" : ""));
+      lines.push(badge + " " + s.code + ": " + scoreStr + vibeStr);
+      var descs = Object.keys(s.descriptors).map(function (c) {
+        return label(c) + " (" + s.descriptors[c] + "/5)";
+      });
+      if (descs.length) lines.push("   Hương vị: " + descs.join(", "));
+      var defs = Object.keys(s.defects).map(label);
+      if (defs.length) lines.push("   ⚠️ Lỗi: " + defs.join(", "));
+      if (s.note) lines.push("   Ghi chú: " + s.note);
+    });
+    lines.push("----------------------------------");
+    var completed = ranked.filter(function (x) { return x.avg !== null; });
+    if (completed.length) {
+      var avgAll = completed.reduce(function (sum, x) { return sum + x.avg; }, 0) / completed.length;
+      lines.push("Điểm TB toàn phiên: " + fmt1(avgAll));
+    }
+    return lines.join("\n");
+  }
+
+  function copyReportToClipboard() {
+    var text = generateReportText();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        toast(T("reportCopied"));
+      }).catch(function () {
+        fallbackCopy(text);
+      });
+    } else {
+      fallbackCopy(text);
+    }
+  }
+
+  function fallbackCopy(text) {
+    try {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      toast(T("reportCopied"));
+    } catch (e) {
+      toast("Không thể sao chép");
+    }
   }
 
   function viewEntry() {
     var staff = S.sess.staff || [];
-    var h = '<div class="toprow"><span></span>' + langToggle() + '</div>' +
+    var h = '<div class="toprow"><button type="button" class="nav-hub-btn" data-act="goHub">‹ ' + esc(T("goHub")) + '</button>' + langToggle() + '</div>' +
       '<p class="kicker">' + esc(purposeText(S.lang, S.sess.session.purpose)) + '</p>' +
       '<h1 class="title">' + esc(S.sess.session.name) + '</h1>' +
       '<p class="muted">' + esc(T("blindNote")) + '</p>' +
@@ -190,6 +476,9 @@
   }
 
   function syncPill() {
+    if (S.token === "solo") {
+      return '<span class="sync">☕ ' + esc(T("soloLocal")) + '</span>';
+    }
     var n = queueCount(S.sid);
     if (!n) return '<span class="sync">' + esc(T("synced")) + '</span>';
     if (S.offline) return '<span class="sync off">' + esc(T("offline")) + ' (' + n + ')</span>';
@@ -199,12 +488,15 @@
   function viewTable() {
     var d = draft(), guest = isGuest();
     if (!S.table.order.length) {
-      return '<main class="screen"><div class="toprow">' + syncPill() + langToggle() + '</div><p class="muted">' + esc(T("noSamples")) + '</p></main>';
+      return '<main class="screen"><div class="toprow">' + syncPill() + '<button type="button" class="nav-hub-btn" data-act="goHub">‹ ' + esc(T("goHub")) + '</button>' + langToggle() + '</div><p class="muted">' + esc(T("noSamples")) + '</p></main>';
     }
     var chips = S.table.order.map(function (id) {
       var st = sampleStatus(S.table, id), on = id === S.table.cur;
-      var sub = st === "saved" ? fmt1(S.table.saved[id].avg) + " ✓" : (st === "wip" ? "●" : "");
-      return '<button type="button" class="chip' + (st === "saved" ? " saved" : "") + (on ? " on" : "") + '" data-act="sample" data-id="' + esc(id) + '" aria-pressed="' + on + '">' +
+      var curDraft = S.table.drafts[id] || {};
+      var hasDefect = Object.keys(curDraft.defects || {}).length > 0;
+      var statusClass = hasDefect ? "chip-defect" : (st === "saved" ? "chip-finished" : (st === "wip" ? "chip-inprogress" : "chip-uncupped"));
+      var sub = hasDefect ? "⚠️ " + T("defect") : (st === "saved" ? fmt1(S.table.saved[id].avg) + " ✓" : (st === "wip" ? "● " + T("inProgress") : T("unCupped")));
+      return '<button type="button" class="chip ' + statusClass + (st === "saved" ? " saved" : "") + (on ? " on" : "") + '" data-act="sample" data-id="' + esc(id) + '" aria-pressed="' + on + '">' +
         '<b>' + esc(sampleCode(id)) + '</b><span>' + esc(sub) + '</span></button>';
     }).join("");
     var la = liveAverage(d), scored = 7 - missingScores(d).length;
@@ -219,14 +511,35 @@
     }).join("");
     var defCodes = Object.keys(d.defects);
 
+    var vibe = d.vibe || "";
+    var smileBar = '<div class="smile-card">' +
+      '<span class="smile-label">' + esc(T("quickImpression")) + '</span>' +
+      '<div class="smile-options">' +
+      '<button type="button" class="smile-btn' + (vibe === "like" ? " active" : "") + '" data-act="vibe" data-v="like" aria-label="' + esc(T("vibeLike")) + '">😍 ' + esc(T("vibeLike")) + '</button>' +
+      '<button type="button" class="smile-btn' + (vibe === "neutral" ? " active" : "") + '" data-act="vibe" data-v="neutral" aria-label="' + esc(T("vibeNeutral")) + '">😐 ' + esc(T("vibeNeutral")) + '</button>' +
+      '<button type="button" class="smile-btn' + (vibe === "dislike" ? " active" : "") + '" data-act="vibe" data-v="dislike" aria-label="' + esc(T("vibeDislike")) + '">😕 ' + esc(T("vibeDislike")) + '</button>' +
+      '</div></div>';
+
+    var allDone = S.table.order.length > 0 && S.table.order.every(function (id) {
+      return S.table.saved && S.table.saved[id];
+    });
+    var banner = allDone ? '<div class="all-done-banner" data-act="goSummary">🎉 ' + esc(T("allDoneBanner")) + '</div>' : '';
+
     var h = '<div class="toprow">' + syncPill() +
-      '<button type="button" class="who" data-act="changeUser">' + esc(S.identity.name) + ' · ' + esc(T("changeUser")) + '</button>' + langToggle() + '</div>' +
+      '<button type="button" class="who" data-act="changeUser">' + esc(S.identity.name) + ' · ' + esc(T("changeUser")) + '</button>' +
+      '<button type="button" class="nav-hub-btn" data-act="goSummary" aria-label="' + esc(T("summary")) + '">📊 ' + esc(T("summary")) + '</button>' +
+      '<button type="button" class="nav-hub-btn" data-act="goHub" aria-label="' + esc(T("goHub")) + '">🏠 ' + esc(T("goHub")) + '</button>' +
+      langToggle() + '</div>' +
+      banner +
       '<div class="chips">' + chips + '</div>' +
       '<div class="headline"><div><p class="kicker">' + esc(T("blind")) + ' · ' + esc(guest ? T("guest") : T("staff")) + '</p>' +
       '<span class="code">' + esc(sampleCode(S.table.cur)) + '</span><span class="liveavg">' + esc(T("avg")) + ' ' + esc(avgText) + '</span></div>' +
       '<div class="icons"><button type="button" class="icon" data-act="undo" aria-label="' + esc(T("undo")) + '"' + (S.table.undo.length ? "" : " disabled") + '>' + ICON.undo + '</button>' +
       '<button type="button" class="icon" data-act="redo" aria-label="' + esc(T("redo")) + '"' + (S.table.redo.length ? "" : " disabled") + '>' + ICON.redo + '</button></div></div>' +
-      '<button type="button" class="card" data-act="open" data-v="score"><h2>' + esc(T("score")) + ' · ' + scored + '/7<em>' + esc(T("edit")) + ' ›</em></h2><div class="mini">' + mini + '</div></button>' +
+      smileBar +
+      '<button type="button" class="card radar-card" data-act="open" data-v="score"><h2>' + esc(T("cvaProfile")) + ' · ' + scored + '/7<em>' + esc(T("edit")) + ' ›</em></h2>' +
+      '<div class="radar-wrap">' + renderRadarSvg(d.scores, S.theme === "light") + '</div>' +
+      '<div class="mini">' + mini + '</div></button>' +
       '<div class="card"><h2>' + esc(T("flavors")) + ' · ' + descCodes.length + '</h2>' +
       (descCodes.length ? '<div class="tags">' + tags + '</div>' : '<span class="muted">' + esc(T("emptyFlavor")) + '</span>') + '</div>';
     if (!guest) {
@@ -317,13 +630,166 @@
       '<button type="button" class="hub" data-act="wheelBack" aria-label="' + esc(v.center === "close" ? T("closeWheel") : T("back")) + '">' + (v.center === "close" ? "×" : "‹") + '</button>';
   }
 
+  function viewHub() {
+    var last = storeGet("cupping:last", null);
+    var resumeCard = "";
+    if (last && last.s && last.t) {
+      var lastName = last.name || last.s;
+      resumeCard = '<div class="card hub-card resume-card">' +
+        '<div class="hub-head">' +
+        '<span class="hub-badge">🔄 ' + esc(T("resumeLast")) + '</span>' +
+        '<h3>' + esc(lastName) + '</h3>' +
+        '</div>' +
+        '<button type="button" class="btn-resume" data-act="resumeLast">' + esc(T("resumeBtn")) + '</button>' +
+        '</div>';
+    }
+
+    var counts = [3, 5, 8, 10];
+    var countBtns = counts.map(function (c) {
+      var on = (S.soloCount || 5) === c;
+      return '<button type="button" class="count-btn' + (on ? " on" : "") + '" data-act="setSoloCount" data-v="' + c + '">' + c + ' ' + esc(T("samplesUnit")) + '</button>';
+    }).join("");
+
+    var h = '<div class="toprow">' +
+      '<div class="hub-brand"><span>INTENSO ROASTERY</span><b>' + esc(T("hubTitle")) + '</b></div>' +
+      langToggle() + '</div>' +
+      '<div class="hub-hero">' +
+      '<p class="kicker">LAB NẾM THỬ CÀ PHÊ</p>' +
+      '<h1 class="title">' + esc(T("hubTitle")) + '</h1>' +
+      '<p class="muted">' + esc(T("hubSub")) + '</p>' +
+      '</div>' +
+      resumeCard +
+      '<div class="card hub-card solo-card">' +
+      '<div class="hub-head">' +
+      '<span class="hub-badge primary">☕ ' + esc(T("startSolo")) + '</span>' +
+      '<p class="muted small">' + esc(T("soloDesc")) + '</p>' +
+      '</div>' +
+      '<div class="solo-settings">' +
+      '<label class="label">' + esc(T("samplesCount")) +
+      '<div class="count-row">' + countBtns + '</div></label>' +
+      '</div>' +
+      '<button type="button" class="cta-solo" data-act="startSolo">' + esc(T("startBtn")) + '</button>' +
+      '</div>' +
+      '<div class="card hub-card join-card">' +
+      '<div class="hub-head">' +
+      '<span class="hub-badge secondary">🔗 ' + esc(T("joinTitle")) + '</span>' +
+      '<p class="muted small">' + esc(T("joinDesc")) + '</p>' +
+      '</div>' +
+      '<div class="join-row">' +
+      '<input type="text" id="joinInput" value="' + esc(S.joinDraft) + '" placeholder="' + esc(T("joinPh")) + '" autocomplete="off">' +
+      '<button type="button" class="btn-join" data-act="joinSession">' + esc(T("joinBtn")) + '</button>' +
+      '</div>' +
+      '</div>';
+    return '<main class="screen hub-screen">' + h + '</main>';
+  }
+
+  function viewSummary() {
+    var ranked = getRankedSamples();
+    var completed = ranked.filter(function (x) { return x.avg !== null; });
+    var sessName = S.sess ? S.sess.session.name : "";
+    var tasterName = S.identity ? S.identity.name : "";
+
+    var sessionAvg = completed.length ? (completed.reduce(function (acc, x) { return acc + x.avg; }, 0) / completed.length) : null;
+    var topSample = completed.length ? completed[0].code : "—";
+
+    var legendItems = ranked.slice(0, 5).map(function (s, idx) {
+      var color = SAMPLE_COLORS[idx % SAMPLE_COLORS.length];
+      var scoreStr = s.avg !== null ? fmt1(s.avg) : "–";
+      return '<span class="legend-item"><span class="legend-dot" style="background:' + color + '"></span>' +
+        esc(s.code) + ' (' + scoreStr + ')</span>';
+    }).join("");
+
+    var medals = ["🥇", "🥈", "🥉"];
+    var rankingRows = ranked.map(function (s, idx) {
+      var rankBadge = idx < 3 ? medals[idx] : '#' + (idx + 1);
+      var scoreStr = s.avg !== null ? fmt1(s.avg) : "–";
+      var vibeIcon = s.vibe === "like" ? " 😍" : (s.vibe === "neutral" ? " 😐" : (s.vibe === "dislike" ? " 😕" : ""));
+      var descKeys = Object.keys(s.descriptors);
+      var tagsHtml = descKeys.slice(0, 3).map(function (c) {
+        return '<span class="tag" style="background:' + WHEEL_COLORS[c.split(".")[0]] + ';padding:2px 8px;font-size:11px;">' +
+          esc(label(c)) + '</span>';
+      }).join("");
+      var defectTag = s.hasDefect ? '<span class="tag def" style="padding:2px 8px;font-size:11px;">⚠️ ' + esc(T("defect")) + '</span>' : '';
+
+      return '<div class="ranking-row">' +
+        '<div class="ranking-left">' +
+        '<span class="ranking-rank">' + rankBadge + '</span>' +
+        '<div>' +
+        '<div style="display:flex;align-items:center;gap:6px;"><span class="ranking-code">' + esc(s.code) + '</span>' + vibeIcon + '</div>' +
+        '<div class="ranking-tags">' + tagsHtml + defectTag + '</div>' +
+        '</div>' +
+        '</div>' +
+        '<div class="ranking-right">' +
+        '<span class="ranking-score">' + scoreStr + '</span>' +
+        '<span class="small muted">' + (s.isSaved ? "✓ " + esc(T("done")) : esc(T("unCupped"))) + '</span>' +
+        '</div>' +
+        '</div>';
+    }).join("");
+
+    var allDesc = {};
+    ranked.forEach(function (s) {
+      Object.keys(s.descriptors).forEach(function (code) {
+        allDesc[code] = (allDesc[code] || 0) + 1;
+      });
+    });
+    var descList = Object.keys(allDesc).map(function (code) {
+      return { code: code, count: allDesc[code] };
+    });
+    descList.sort(function (a, b) { return b.count - a.count; });
+    var topDescHtml = descList.length ? descList.slice(0, 8).map(function (d) {
+      var group = d.code.split(".")[0];
+      return '<span class="consensus-pill">' +
+        '<span class="legend-dot" style="background:' + WHEEL_COLORS[group] + '"></span>' +
+        esc(label(d.code)) + ' <b>' + d.count + ' ' + esc(T("votes")) + '</b></span>';
+    }).join("") : '<span class="muted small">' + esc(T("emptyFlavor")) + '</span>';
+
+    var h = '<div class="toprow">' +
+      '<button type="button" class="nav-hub-btn" data-act="backToTable">‹ ' + esc(T("backToTable")) + '</button>' +
+      langToggle() + '</div>' +
+      '<div class="summary-hero">' +
+      '<p class="kicker">INTENSO ROASTERY · CUPPING LAB</p>' +
+      '<h1 class="title">' + esc(T("summaryTitle")) + '</h1>' +
+      '<p class="muted">' + esc(sessName) + (tasterName ? ' · ' + esc(tasterName) : '') + '</p>' +
+      '</div>' +
+      '<div class="summary-stats">' +
+      '<div class="stat-box">' +
+      '<span class="stat-num">' + (sessionAvg !== null ? fmt1(sessionAvg) : "—") + '</span>' +
+      '<span class="stat-label">' + esc(T("sessionAvg")) + '</span></div>' +
+      '<div class="stat-box">' +
+      '<span class="stat-num">' + completed.length + '/' + ranked.length + '</span>' +
+      '<span class="stat-label">' + esc(T("samplesCupped")) + '</span></div>' +
+      '<div class="stat-box highlight">' +
+      '<span class="stat-num">' + esc(topSample) + '</span>' +
+      '<span class="stat-label">' + esc(T("topSample")) + '</span></div>' +
+      '</div>' +
+      '<div class="card summary-radar-card">' +
+      '<div style="width:100%;"><h2 style="margin:0 0 6px;">' + esc(T("radarCompare")) + '</h2></div>' +
+      '<div class="radar-wrap">' + renderMultiRadarSvg(ranked, S.theme === "light") + '</div>' +
+      '<div class="radar-legend">' + legendItems + '</div>' +
+      '</div>' +
+      '<div class="card">' +
+      '<h2 style="margin:0 0 8px;">' + esc(T("sampleRanking")) + '</h2>' +
+      '<div class="ranking-list">' + rankingRows + '</div>' +
+      '</div>' +
+      '<div class="card">' +
+      '<h2 style="margin:0 0 8px;">' + esc(T("consensusFlavors")) + '</h2>' +
+      '<div class="consensus-tags">' + topDescHtml + '</div>' +
+      '</div>' +
+      '<button type="button" class="cta-copy" data-act="copyReport">📋 ' + esc(T("copyReport")) + '</button>';
+
+    return '<main class="screen summary-screen">' + h + '</main>';
+  }
+
   function viewError() {
     var retryBtn = S.errorRetryable ? '<button type="button" class="cta" data-act="retryBoot">' + esc(T("retry")) + '</button>' : "";
-    return '<div class="center"><div><p>' + esc(errorText(S.lang, S.errorCode)) + '</p>' + retryBtn + langToggle() + '</div></div>';
+    var hubBtn = '<button type="button" class="ghost" data-act="goHub" style="margin-top:10px;width:100%;">🏠 ' + esc(T("goHub")) + '</button>';
+    return '<div class="center"><div><p>' + esc(errorText(S.lang, S.errorCode)) + '</p>' + retryBtn + hubBtn + '<div style="margin-top:16px;">' + langToggle() + '</div></div></div>';
   }
 
   function render() {
-    var h = S.screen === "error" ? viewError()
+    var h = S.screen === "hub" ? viewHub()
+      : S.screen === "summary" ? viewSummary()
+      : S.screen === "error" ? viewError()
       : S.screen === "loading" ? '<div class="center muted">' + esc(T("loading")) + '</div>'
       : S.screen === "entry" ? viewEntry() : viewTable();
     root.innerHTML = h;
@@ -340,14 +806,16 @@
     }
     var rev = nextRevision(storeGet("cupping:rev", 0), Date.now());
     storeSet("cupping:rev", rev);
-    enqueue({ session_id: S.sid, token: S.token, entry: buildEntry(d, S.identity, S.table.cur, rev) });
+    if (S.token !== "solo") {
+      enqueue({ session_id: S.sid, token: S.token, entry: buildEntry(d, S.identity, S.table.cur, rev) });
+    }
     var code = sampleCode(S.table.cur), avg = liveAverage(d);
     S.table = markSaved(S.table, S.table.cur, rev);
     S.table = selectSample(S.table, nextUnsaved(S.table));
     persist(); closeOverlay();
     render(); // phản hồi ngay tại chỗ — không chờ sync() (network round trip) mới thấy chip đổi (F5 round 2)
     toast(T("queued").replace("{code}", code) + " · " + T("avg") + " " + fmt1(avg));
-    sync();
+    if (S.token !== "solo") sync();
   }
 
   function enter() {
@@ -377,6 +845,7 @@
   root.addEventListener("input", function (e) {
     if (e.target.id === "guestName") S.guestNameDraft = e.target.value;
     if (e.target.id === "note") S.noteDraft = e.target.value;
+    if (e.target.id === "joinInput") S.joinDraft = e.target.value;
   });
   // Ghi chú: 1 lần Undo cho cả đoạn. KHÔNG vẽ lại ở đây — "change" bắn lúc ô mất focus, tức
   // ngay trước cú chạm vào nút ×; vẽ lại lúc đó sẽ thay nút dưới ngón tay và nuốt mất cú chạm.
@@ -393,6 +862,33 @@
     var act = el.getAttribute("data-act"), v = el.getAttribute("data-v");
     switch (act) {
       case "lang": S.lang = v === "en" ? "en" : "vi"; storeSet("cupping:lang", S.lang); render(); break;
+      case "theme":
+        S.theme = S.theme === "light" ? "dark" : "light";
+        storeSet("cupping:theme", S.theme);
+        document.body.classList.toggle("light-mode", S.theme === "light");
+        render();
+        break;
+      case "goHub": S.screen = "hub"; render(); break;
+      case "goSummary": S.screen = "summary"; render(); break;
+      case "backToTable": S.screen = "table"; render(); break;
+      case "copyReport": copyReportToClipboard(); break;
+      case "setSoloCount": S.soloCount = +v; render(); break;
+      case "startSolo": startSoloSession(S.soloCount || 5); break;
+      case "resumeLast":
+        var last = storeGet("cupping:last", null);
+        if (last && last.s && last.t) openSession(last.s, last.t);
+        break;
+      case "joinSession":
+        var inputEl = document.getElementById("joinInput");
+        var val = inputEl ? inputEl.value : S.joinDraft;
+        var parsed = parseSessionInput(val);
+        if (parsed) {
+          openSession(parsed.s, parsed.t);
+        } else {
+          toast(T("needValidLinkOrCode"));
+        }
+        break;
+      case "vibe": edit(setVibe(draft().vibe === v ? "" : v)); break;
       case "retryBoot": fetchSession(); break;
       case "role": S.role = v; render(); break;
       case "pickStaff": S.pickStaff = el.getAttribute("data-id"); render(); break;

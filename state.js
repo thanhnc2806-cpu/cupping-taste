@@ -67,6 +67,7 @@ function setDescriptor(code, intensity) { return function (d) { d.descriptors[co
 function removeDescriptor(code) { return function (d) { delete d.descriptors[code]; }; }
 function toggleDefect(code) { return function (d) { if (d.defects[code]) delete d.defects[code]; else d.defects[code] = true; }; }
 function setNote(text) { return function (d) { d.note = String(text || "").slice(0, 500); }; }
+function setVibe(vibe) { return function (d) { if (vibe) d.vibe = vibe; else delete d.vibe; }; }
 
 function missingScores(d) {
   return SCORE_FIELDS.filter(function (f) { return typeof d.scores[f] !== "number"; });
@@ -78,7 +79,7 @@ function liveAverage(d) {
 }
 
 function hasData_(d) {
-  return Object.keys(d.scores).length > 0 || Object.keys(d.descriptors).length > 0 || Object.keys(d.defects).length > 0 || !!d.note;
+  return Object.keys(d.scores).length > 0 || Object.keys(d.descriptors).length > 0 || Object.keys(d.defects).length > 0 || !!d.note || !!d.vibe;
 }
 
 function sampleStatus(t, id) {
@@ -140,7 +141,7 @@ if (typeof module !== "undefined") {
   module.exports = {
     SCORE_FIELDS: SCORE_FIELDS, emptyDraft: emptyDraft, createTable: createTable, addSamples: addSamples,
     editCurrent: editCurrent, undo: undo, redo: redo, selectSample: selectSample,
-    setScore: setScore, setDescriptor: setDescriptor, removeDescriptor: removeDescriptor, toggleDefect: toggleDefect, setNote: setNote,
+    setScore: setScore, setDescriptor: setDescriptor, removeDescriptor: removeDescriptor, toggleDefect: toggleDefect, setNote: setNote, setVibe: setVibe,
     missingScores: missingScores, liveAverage: liveAverage, sampleStatus: sampleStatus,
     markSaved: markSaved, unmarkSaved: unmarkSaved, nextUnsaved: nextUnsaved,
     buildEntry: buildEntry, nextRevision: nextRevision,

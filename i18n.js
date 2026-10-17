@@ -17,7 +17,24 @@ var STRINGS = {
     yourName: "Tên của bạn", namePh: "Ví dụ: Lan", guestHint: "Không cần đăng nhập Google. Tên chỉ để ghi nhận điểm của bạn.",
     enter: "Vào bàn cupping →", needName: "Nhập tên của bạn trước.", needStaff: "Chọn tên của bạn trước.",
     changeUser: "Đổi người chấm", changeConfirm: "Đổi người chấm trên máy này? Bản nháp chưa bấm Xong sẽ bị xoá.",
-    noSamples: "Phiên chưa có mẫu — chờ người điều phối thêm mẫu.", retry: "Thử lại"
+    noSamples: "Phiên chưa có mẫu — chờ người điều phối thêm mẫu.", retry: "Thử lại",
+    unCupped: "Chưa nếm", inProgress: "Đang nếm", defect: "Lỗi",
+    quickImpression: "Ấn tượng nhanh", vibeLike: "Thích", vibeNeutral: "Vừa", vibeDislike: "Lệch",
+    cvaProfile: "Hồ sơ CVA (7 trục)", toggleTheme: "Đổi nền sáng/tối",
+    hubTitle: "Bàn Cupping Chủ Động", hubSub: "Nếm tự do · Không cần máy tính hay quét QR",
+    startSolo: "Cupping Tự Do / Mẻ Mới", soloDesc: "Nếm mẻ rang mới hoặc tự luyện sensory. Lưu trữ trên máy.",
+    samplesCount: "Số lượng mẫu nếm", samplesUnit: "mẫu", startBtn: "Vào bàn nếm ngay →",
+    resumeLast: "Tiếp tục phiên trước", resumeBtn: "Tiếp tục nếm ›",
+    joinTitle: "Vào bằng link hoặc mã", joinDesc: "Dán link Zalo/Telegram từ Host để vào bàn cùng đội ngũ.",
+    joinPh: "Dán link hoặc mã phiên…", joinBtn: "Vào bàn",
+    goHub: "Đổi phiên", soloLocal: "Nội bộ", needValidLinkOrCode: "Vui lòng nhập link hoặc mã phiên hợp lệ.",
+    summary: "Tổng kết", summaryTitle: "Tổng Kết Phiên Cupping", summarySub: "Báo cáo cảm quan & xếp hạng mẫu",
+    viewSummary: "Xem tổng kết", backToTable: "Quay lại bàn nếm", sessionAvg: "TB toàn phiên",
+    samplesCupped: "Mẫu đã nếm", topSample: "Mẫu cao nhất", sampleRanking: "Bảng xếp hạng mẫu",
+    radarCompare: "So sánh hình thái CVA (Radar)", consensusFlavors: "Nốt hương nổi bật nhất",
+    copyReport: "Sao chép báo cáo", reportCopied: "Đã sao chép báo cáo vào bộ nhớ tạm!",
+    noDataSummary: "Chưa có mẫu nào được chấm điểm xong.", votes: "lượt",
+    allDoneBanner: "Đã nếm xong tất cả mẫu · Bấm để xem tổng kết ›"
   },
   en: {
     loading: "Loading session…", synced: "All saved", saving: "Saving", offline: "Waiting to sync — offline",
@@ -36,7 +53,24 @@ var STRINGS = {
     yourName: "Your name", namePh: "e.g. Lan", guestHint: "No Google login needed. Your name only labels your scores.",
     enter: "Go to the cupping table →", needName: "Enter your name first.", needStaff: "Pick your name first.",
     changeUser: "Change taster", changeConfirm: "Change the taster on this phone? Unsent drafts will be cleared.",
-    noSamples: "No samples yet — wait for the host to add them.", retry: "Retry"
+    noSamples: "No samples yet — wait for the host to add them.", retry: "Retry",
+    unCupped: "Uncupped", inProgress: "In-progress", defect: "Defect",
+    quickImpression: "Quick impression", vibeLike: "Like", vibeNeutral: "Neutral", vibeDislike: "Off",
+    cvaProfile: "CVA Profile (7 axes)", toggleTheme: "Toggle light/dark",
+    hubTitle: "Active Cupping Hub", hubSub: "On-demand tasting · No host or QR required",
+    startSolo: "Solo Cupping / New Roast", soloDesc: "Taste new roast batches or practice sensory solo. Stored locally.",
+    samplesCount: "Number of samples", samplesUnit: "samples", startBtn: "Start tasting now →",
+    resumeLast: "Resume previous session", resumeBtn: "Resume tasting ›",
+    joinTitle: "Join with link or code", joinDesc: "Paste link or code from host to cup with the team.",
+    joinPh: "Paste link or session code…", joinBtn: "Join",
+    goHub: "Switch", soloLocal: "Local", needValidLinkOrCode: "Please enter a valid link or session code.",
+    summary: "Summary", summaryTitle: "Cupping Flight Summary", summarySub: "Sensory report & sample ranking",
+    viewSummary: "View summary", backToTable: "Back to table", sessionAvg: "Session avg",
+    samplesCupped: "Samples cupped", topSample: "Top sample", sampleRanking: "Sample ranking",
+    radarCompare: "CVA Profile Comparison (Radar)", consensusFlavors: "Top consensus descriptors",
+    copyReport: "Copy report", reportCopied: "Report copied to clipboard!",
+    noDataSummary: "No samples completed yet.", votes: "votes",
+    allDoneBanner: "All samples cupped · Tap to view summary ›"
   }
 };
 

@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mô phỏng Cupping Pro — Intenso Roastery</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0D0F12;
+  --surface: #16191E;
+  --surface-raised: #1F242C;
+  --surface-border: #2A303C;
+  --text-main: #F4EFEA;
+  --text-muted: #9E9589;
+  --accent: #E5A970;
+  --accent-glow: rgba(229, 169, 112, 0.25);
+  --tag-bg: #222832;
+
+  /* 4 Cup Indicator Colors (Coffee Rose inspired) */
+  --c-uncupped: #E5B358;
+  --c-uncupped-bg: rgba(229, 179, 88, 0.14);
+  --c-inprogress: #6BA8F2;
+  --c-inprogress-bg: rgba(107, 168, 242, 0.15);
+  --c-finished: #52B788;
+  --c-finished-bg: rgba(82, 183, 136, 0.16);
+  --c-defect: #E76F51;
+  --c-defect-bg: rgba(231, 111, 81, 0.18);
+  
+  --radius-lg: 18px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  --transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+body.light-mode {
+  --bg: #F5F1EB;
+  --surface: #FFFFFF;
+  --surface-raised: #EAE4DC;
+  --surface-border: #D8D0C5;
+  --text-main: #1D1E20;
+  --text-muted: #6B665E;
+  --accent: #C87A38;
+  --accent-glow: rgba(200, 122, 56, 0.2);
+  --tag-bg: #EAE3D9;
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text-main);
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+.app-container {
+  width: 100%;
+  max-width: 480px;
+  min-height: 100vh;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  border-left: 1px solid var(--surface-border);
+  border-right: 1px solid var(--surface-border);
+  padding-bottom: 90px;
+}
+
+/* Header */
+header {
+  padding: 16px 20px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--surface-border);
+  background: var(--surface);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+.brand-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.brand-title::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent);
+}
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.theme-btn, .lang-btn {
+  background: var(--surface-raised);
+  border: 1px solid var(--surface-border);
+  color: var(--text-main);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: var(--transition);
+}
+.theme-btn:hover { border-color: var(--accent); }
+
+/* Navigation Pills (Màn hình người nếm vs Đồng thuận vs Host) */
+.view-nav {
+  display: flex;
+  padding: 10px 16px 4px;
+  gap: 6px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--surface-border);
+}
+.nav-pill {
+  flex: 1;
+  padding: 8px 4px;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.nav-pill.active {
+  background: var(--surface-raised);
+  color: var(--accent);
+  border: 1px solid var(--surface-border);
+}
+
+/* 4-Color Cup Chips */
+.chips-bar {
+  padding: 14px 16px;
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.chips-bar::-webkit-scrollbar { display: none; }
+.cup-chip {
+  flex: 0 0 auto;
+  min-width: 84px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  transition: var(--transition);
+  position: relative;
+}
+.cup-chip .code {
+  font-family: 'Fraunces', serif;
+  font-size: 17px;
+  font-weight: 700;
+}
+.cup-chip .status-text {
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.cup-chip.selected {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px var(--shadow);
+}
+
+/* Status variants */
+.chip-uncupped {
+  background: var(--c-uncupped-bg);
+  color: var(--c-uncupped);
+  border-color: rgba(229, 179, 88, 0.3);
+}
+.chip-uncupped.selected { border-color: var(--c-uncupped); }
+
+.chip-inprogress {
+  background: var(--c-inprogress-bg);
+  color: var(--c-inprogress);
+  border-color: rgba(107, 168, 242, 0.3);
+}
+.chip-inprogress.selected { border-color: var(--c-inprogress); }
+
+.chip-finished {
+  background: var(--c-finished-bg);
+  color: var(--c-finished);
+  border-color: rgba(82, 183, 136, 0.3);
+}
+.chip-finished.selected { border-color: var(--c-finished); }
+
+.chip-defect {
+  background: var(--c-defect-bg);
+  color: var(--c-defect);
+  border-color: rgba(231, 111, 81, 0.35);
+}
+.chip-defect.selected { border-color: var(--c-defect); }
+
+/* Main Views */
+.view-content {
+  display: none;
+  padding: 16px;
+  flex-direction: column;
+  gap: 16px;
+}
+.view-content.active { display: flex; }
+
+/* Hero Lot Card */
+.lot-card {
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  box-shadow: var(--shadow);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.lot-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.lot-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+}
+.lot-title {
+  font-family: 'Fraunces', serif;
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text-main);
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.revealed-info {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent);
+}
+.score-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background: var(--c-finished-bg);
+  border: 2px solid var(--c-finished);
+  color: var(--c-finished);
+  box-shadow: 0 0 16px rgba(82, 183, 136, 0.2);
+}
+.score-badge span { font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.score-badge b { font-size: 20px; font-weight: 800; font-family: 'Fraunces', serif; }
+
+/* Smile-o-meter / Quick Impression */
+.smile-card {
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.smile-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.smile-options {
+  display: flex;
+  gap: 8px;
+}
+.smile-btn {
+  background: var(--surface-raised);
+  border: 1px solid var(--surface-border);
+  font-size: 18px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: var(--transition);
+  opacity: 0.6;
+}
+.smile-btn.active {
+  opacity: 1;
+  transform: scale(1.1);
+  background: var(--accent-glow);
+  border-color: var(--accent);
+}
+
+/* Radar Chart Card */
+.radar-card {
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: var(--shadow);
+}
+.card-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.card-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-main);
+}
+.card-header .sub {
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+}
+.radar-container {
+  width: 100%;
+  max-width: 320px;
+  height: 240px;
+}
+
+/* Flavor Tags Card */
+.flavors-card {
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.tag-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #14161A;
+  transition: var(--transition);
+  cursor: pointer;
+}
+.tag-item .dots {
+  font-size: 11px;
+  letter-spacing: -1px;
+}
+.add-tag-btn {
+  background: var(--surface-raised);
+  border: 1px dashed var(--accent);
+  color: var(--accent);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Half Wheel Interactive Area */
+.wheel-section {
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  padding: 16px 12px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+.wheel-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.wheel-pill {
+  background: var(--surface-raised);
+  border: 1px solid var(--accent);
+  color: var(--text-main);
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+.wheel-svg-wrap {
+  width: 100%;
+  max-width: 380px;
+  height: 190px;
+}
+.wheel-svg-wrap svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.wheel-svg-wrap path {
+  cursor: pointer;
+  transition: opacity 0.2s, stroke-width 0.2s;
+  stroke: var(--bg);
+  stroke-width: 1.5;
+}
+.wheel-svg-wrap path:hover {
+  filter: brightness(1.15);
+  stroke: #FFF;
+  stroke-width: 2.5;
+}
+.wheel-svg-wrap text {
+  font-size: 10px;
+  font-weight: 700;
+  fill: #14161A;
+  pointer-events: none;
+  font-family: inherit;
+}
+
+/* Bottom Bar */
+.bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  height: 72px;
+  background: var(--surface);
+  border-top: 1px solid var(--surface-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  z-index: 30;
+  backdrop-filter: blur(12px);
+}
+.bar-action {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 8px 14px;
+  transition: var(--transition);
+}
+.bar-action:hover, .bar-action.active {
+  color: var(--accent);
+}
+.fab-btn {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #121417;
+  border: 4px solid var(--bg);
+  box-shadow: 0 4px 16px var(--accent-glow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 24px;
+  font-weight: 800;
+  margin-top: -24px;
+  transition: var(--transition);
+}
+.fab-btn:hover { transform: scale(1.08); }
+
+/* Panel Consensus View Styling */
+.consensus-card {
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+}
+.consensus-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+.consensus-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--surface-raised);
+  border-radius: var(--radius-md);
+  border-left: 4px solid var(--accent);
+}
+.consensus-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.consensus-name {
+  font-weight: 700;
+  font-size: 14px;
+}
+.consensus-cuppers {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.vote-pill {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--accent-glow);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+/* Host Matrix View */
+.matrix-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-top: 8px;
+}
+.matrix-table th, .matrix-table td {
+  padding: 10px 8px;
+  text-align: center;
+  border-bottom: 1px solid var(--surface-border);
+}
+.matrix-table th:first-child, .matrix-table td:first-child {
+  text-align: left;
+  font-weight: 700;
+}
+.matrix-dot {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+}
+.matrix-dot.done { background: var(--c-finished); box-shadow: 0 0 6px var(--c-finished); }
+.matrix-dot.wip { background: var(--c-inprogress); }
+.matrix-dot.none { background: var(--surface-border); }
+.matrix-dot.def { background: var(--c-defect); box-shadow: 0 0 6px var(--c-defect); }
+
+</style>
+</head>
+<body>
+
+<div class="app-container">
+  <!-- Header -->
+  <header>
+    <div class="brand-title">Cupping Pro · Intenso</div>
+    <div class="header-actions">
+      <button class="theme-btn" id="themeToggle" onclick="toggleTheme()">☀️ Sáng / Tối</button>
+      <button class="lang-btn">VI | EN</button>
+    </div>
+  </header>
+
+  <!-- Navigation Switcher -->
+  <nav class="view-nav">
+    <button class="nav-pill active" onclick="switchView('cupping')">☕ Bàn Cupping</button>
+    <button class="nav-pill" onclick="switchView('consensus')">📊 Đồng thuận cả bàn</button>
+    <button class="nav-pill" onclick="switchView('host')">🖥️ Host Matrix</button>
+  </nav>
+
+  <!-- 4-Color Status Chips -->
+  <div class="chips-bar">
+    <div class="cup-chip chip-uncupped" onclick="selectChip(this, 'A01', 0, 'none')">
+      <span class="code">A01</span>
+      <span class="status-text">Chưa nếm</span>
+    </div>
+    <div class="cup-chip chip-inprogress" onclick="selectChip(this, 'A02', 7.2, 'wip')">
+      <span class="code">A02</span>
+      <span class="status-text">Đang nếm</span>
+    </div>
+    <div class="cup-chip chip-finished selected" onclick="selectChip(this, 'A03', 86.5, 'done')">
+      <span class="code">A03</span>
+      <span class="status-text">86.5 ✓</span>
+    </div>
+    <div class="cup-chip chip-defect" onclick="selectChip(this, 'A04', 0, 'defect')">
+      <span class="code">A04</span>
+      <span class="status-text">⚠️ Lỗi</span>
+    </div>
+    <div class="cup-chip chip-uncupped" onclick="selectChip(this, 'A05', 0, 'none')">
+      <span class="code">A05</span>
+      <span class="status-text">Chưa nếm</span>
+    </div>
+  </div>
+
+  <!-- VIEW 1: BÀN CUPPING CỦA THỢ RANG -->
+  <main id="view-cupping" class="view-content active">
+    <!-- Hero Lot Card -->
+    <div class="lot-card">
+      <div class="lot-hero">
+        <span class="lot-label">Mã mù mẫu đang chọn</span>
+        <div class="lot-title" id="currentSampleCode">A03</div>
+        <div class="revealed-info">Ethiopia Yirgacheffe Anaerobic (Mẻ #10092601)</div>
+      </div>
+      <div class="score-badge">
+        <span>TB Live</span>
+        <b id="liveScoreValue">86.5</b>
+      </div>
+    </div>
+
+    <!-- Smile-o-meter: Quick Impression -->
+    <div class="smile-card">
+      <span class="smile-label">Ấn tượng đầu tiên (Quick Vibe)</span>
+      <div class="smile-options">
+        <button class="smile-btn active" onclick="setSmile(this)">😍 Thích</button>
+        <button class="smile-btn" onclick="setSmile(this)">😐 Vừa</button>
+        <button class="smile-btn" onclick="setSmile(this)">😕 Tệ</button>
+      </div>
+    </div>
+
+    <!-- Live SVG Radar / Spider Chart -->
+    <div class="radar-card">
+      <div class="card-header">
+        <h3>CVA Radar Chart (7 Trục)</h3>
+        <span class="sub" onclick="randomizeRadar()">🎲 Đổi thử số</span>
+      </div>
+      <div class="radar-container">
+        <svg viewBox="0 0 300 240" id="radarSvg"></svg>
+      </div>
+    </div>
+
+    <!-- Flavor Wheel Interactive (Bottom-Up Half Wheel) -->
+    <div class="wheel-section">
+      <div class="wheel-title">Bánh xe hương vị SCA nửa vòng (Coffee Rose style)</div>
+      <div class="wheel-pill" id="wheelPill">Chạm vào một nhóm để mở rộng</div>
+      <div class="wheel-svg-wrap">
+        <svg viewBox="0 0 400 200" id="wheelSvg"></svg>
+      </div>
+    </div>
+
+    <!-- Selected Flavor Tags -->
+    <div class="flavors-card">
+      <div class="card-header">
+        <h3>Hương vị đã ghi nhận</h3>
+        <span class="sub">3 nốt hương</span>
+      </div>
+      <div class="tags-list" id="tagsContainer">
+        <span class="tag-item" style="background:#F4A9A8;">Việt quất (Blueberry) <span class="dots">●●●●○</span></span>
+        <span class="tag-item" style="background:#D8C6F0;">Hoa nhài (Jasmine) <span class="dots">●●●○○</span></span>
+        <span class="tag-item" style="background:#CDB8A5;">Sô cô la đen <span class="dots">●●●○○</span></span>
+        <button class="add-tag-btn" onclick="addMockTag()">+ Thêm nốt</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- VIEW 2: ĐỒNG THUẬN CẢ BÀN (PANEL CONSENSUS) -->
+  <main id="view-consensus" class="view-content">
+    <div class="lot-card">
+      <div class="lot-hero">
+        <span class="lot-label">Tổng kết buổi nếm thứ Sáu</span>
+        <div class="lot-title">Mẫu A03</div>
+        <div class="revealed-info">4/4 Cupper đã chấm xong · Độ đồng thuận: 91%</div>
+      </div>
+      <div class="score-badge">
+        <span>TB Cả bàn</span>
+        <b>86.8</b>
+      </div>
+    </div>
+
+    <div class="radar-card">
+      <div class="card-header">
+        <h3>So sánh đa giác 4 cupper</h3>
+        <span class="sub" style="font-size:11px;">Thanh (Lam) · Minh (Cam) · An (Tím) · Vinh (Lục)</span>
+      </div>
+      <div class="radar-container">
+        <svg viewBox="0 0 300 240" id="consensusRadarSvg"></svg>
+      </div>
+    </div>
+
+    <div class="consensus-card">
+      <div class="card-header">
+        <h3>Nốt hương đồng thuận cao nhất</h3>
+        <span class="sub">Xếp theo số phiếu</span>
+      </div>
+      <div class="consensus-list">
+        <div class="consensus-row">
+          <div class="consensus-info">
+            <span class="consensus-name">🫐 Việt quất (Blueberry)</span>
+            <span class="consensus-cuppers">Thanh (4) · Minh (4) · An (5) · Vinh (3)</span>
+          </div>
+          <span class="vote-pill">4/4 phiếu</span>
+        </div>
+        <div class="consensus-row">
+          <div class="consensus-info">
+            <span class="consensus-name">🌸 Hoa nhài (Jasmine)</span>
+            <span class="consensus-cuppers">Thanh (3) · An (4) · Minh (3)</span>
+          </div>
+          <span class="vote-pill">3/4 phiếu</span>
+        </div>
+        <div class="consensus-row">
+          <div class="consensus-info">
+            <span class="consensus-name">🍫 Sô cô la đen (Dark Chocolate)</span>
+            <span class="consensus-cuppers">Thanh (3) · Vinh (3)</span>
+          </div>
+          <span class="vote-pill">2/4 phiếu</span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- VIEW 3: HOST LIVE MATRIX -->
+  <main id="view-host" class="view-content">
+    <div class="lot-card">
+      <div class="lot-hero">
+        <span class="lot-label">Quản trị phiên trực tiếp (Host)</span>
+        <div class="lot-title" style="font-size:24px;">Tiến độ bàn cupping</div>
+        <div class="revealed-info">5 Mẫu · 4 Người nếm · 1 Cảnh báo Defect</div>
+      </div>
+    </div>
+
+    <div class="consensus-card">
+      <div class="card-header">
+        <h3>Ma trận thời gian thực (Live Matrix)</h3>
+      </div>
+      <table class="matrix-table">
+        <thead>
+          <tr>
+            <th>Cupper</th>
+            <th>A01</th>
+            <th>A02</th>
+            <th>A03</th>
+            <th>A04</th>
+            <th>A05</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Thanh (Head)</td>
+            <td><span class="matrix-dot none"></span></td>
+            <td><span class="matrix-dot wip"></span></td>
+            <td><span class="matrix-dot done"></span></td>
+            <td><span class="matrix-dot def"></span></td>
+            <td><span class="matrix-dot none"></span></td>
+          </tr>
+          <tr>
+            <td>Minh (5kg)</td>
+            <td><span class="matrix-dot done"></span></td>
+            <td><span class="matrix-dot done"></span></td>
+            <td><span class="matrix-dot done"></span></td>
+            <td><span class="matrix-dot none"></span></td>
+            <td><span class="matrix-dot none"></span></td>
+          </tr>
+          <tr>
+            <td>An (QC)</td>
+            <td><span class="matrix-dot none"></span></td>
+            <td><span class="matrix-dot wip"></span></td>
+            <td><span class="matrix-dot done"></span></td>
+            <td><span class="matrix-dot def"></span></td>
+            <td><span class="matrix-dot none"></span></td>
+          </tr>
+          <tr>
+            <td>Vinh</td>
+            <td><span class="matrix-dot none"></span></td>
+            <td><span class="matrix-dot none"></span></td>
+            <td><span class="matrix-dot done"></span></td>
+            <td><span class="matrix-dot none"></span></td>
+            <td><span class="matrix-dot none"></span></td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="display:flex; gap:12px; font-size:11px; margin-top:14px; justify-content:center; color:var(--text-muted);">
+        <span><span class="matrix-dot done"></span> Xong</span>
+        <span><span class="matrix-dot wip"></span> Đang nếm</span>
+        <span><span class="matrix-dot none"></span> Chưa</span>
+        <span><span class="matrix-dot def"></span> Defect!</span>
+      </div>
+    </div>
+
+    <button style="width:100%; height:50px; background:var(--accent); color:#121417; font-weight:700; border:none; border-radius:var(--radius-md); font-size:15px; cursor:pointer;" onclick="alert('Đã công bố danh tính 5 mẻ rang trên màn hình tất cả cuppers!')">
+      🔓 Tiết lộ toàn bộ mã mù (Reveal Coffees)
+    </button>
+  </main>
+
+  <!-- Bottom Bar Navigation -->
+  <nav class="bottom-bar">
+    <button class="bar-action active" onclick="switchView('cupping')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h11M4 18h14"/></svg>
+      <span>Điểm CVA</span>
+    </button>
+    <button class="bar-action" onclick="alert('Mở danh sách thẻ nếm chi tiết')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
+      <span>Thẻ nếm</span>
+    </button>
+    <button class="fab-btn" onclick="alert('Đã mở rộng Bánh xe hương vị nửa vòng!')">+</button>
+    <button class="bar-action" onclick="alert('Đã đánh dấu cờ lỗi Defect cho mẫu này!')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17.5v.01"/></svg>
+      <span>Lỗi</span>
+    </button>
+    <button class="bar-action" style="color:var(--c-finished);" onclick="alert('Lưu mẻ A03 thành công! Tự động chuyển sang mẫu A02.')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+      <span>Xong</span>
+    </button>
+  </nav>
+</div>
+
+<script>
+// Toggle Theme (Sáng / Tối cho phòng rang)
+function toggleTheme() {
+  document.body.classList.toggle('light-mode');
+  const btn = document.getElementById('themeToggle');
+  if (document.body.classList.contains('light-mode')) {
+    btn.innerHTML = '🌙 Nền tối';
+  } else {
+    btn.innerHTML = '☀️ Nền sáng';
+  }
+  drawRadar();
+  drawConsensusRadar();
+}
+
+// Switch Views
+function switchView(viewName) {
+  document.querySelectorAll('.view-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-pill').forEach(el => el.classList.remove('active'));
+  
+  document.getElementById('view-' + viewName).classList.add('active');
+  const idx = viewName === 'cupping' ? 0 : viewName === 'consensus' ? 1 : 2;
+  document.querySelectorAll('.nav-pill')[idx].classList.add('active');
+}
+
+// Select Chip
+function selectChip(el, code, score, status) {
+  document.querySelectorAll('.cup-chip').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('currentSampleCode').innerText = code;
+  document.getElementById('liveScoreValue').innerText = score > 0 ? score : '—';
+}
+
+// Smile-o-meter
+function setSmile(btn) {
+  document.querySelectorAll('.smile-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// Add Mock Tag
+function addMockTag() {
+  const container = document.getElementById('tagsContainer');
+  const span = document.createElement('span');
+  span.className = 'tag-item';
+  span.style.background = '#F3D98E';
+  span.innerHTML = 'Vỏ cam (Orange Peel) <span class="dots">●●●●○</span>';
+  container.insertBefore(span, container.lastElementChild);
+}
+
+// Radar Chart Rendering (7 Axes)
+const axes = [
+  { name: 'Fragrance', val: 8.5 },
+  { name: 'Flavor', val: 8.75 },
+  { name: 'Aftertaste', val: 8.25 },
+  { name: 'Acidity', val: 8.8 },
+  { name: 'Sweetness', val: 8.6 },
+  { name: 'Mouthfeel', val: 8.3 },
+  { name: 'Overall', val: 8.7 }
+];
+
+function drawRadar() {
+  const svg = document.getElementById('radarSvg');
+  const cx = 150, cy = 120, maxR = 90;
+  const n = axes.length;
+  let html = '';
+
+  // Background Web concentric rings
+  for (let r = 1; r <= 4; r++) {
+    const curR = (maxR / 4) * r;
+    let pts = [];
+    for (let i = 0; i < n; i++) {
+      const angle = (Math.PI * 2 / n) * i - Math.PI / 2;
+      pts.push(`${cx + curR * Math.cos(angle)},${cy + curR * Math.sin(angle)}`);
+    }
+    const isLight = document.body.classList.contains('light-mode');
+    const ringColor = isLight ? '#DDD6CC' : '#2A303C';
+    html += `<polygon points="${pts.join(' ')}" fill="none" stroke="${ringColor}" stroke-width="1" />`;
+  }
+
+  // Axes lines + labels
+  axes.forEach((ax, i) => {
+    const angle = (Math.PI * 2 / n) * i - Math.PI / 2;
+    const x = cx + maxR * Math.cos(angle);
+    const y = cy + maxR * Math.sin(angle);
+    const isLight = document.body.classList.contains('light-mode');
+    html += `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="${isLight ? '#DDD6CC' : '#2A303C'}" stroke-width="1" />`;
+    
+    // Label
+    const tx = cx + (maxR + 18) * Math.cos(angle);
+    const ty = cy + (maxR + 14) * Math.sin(angle);
+    const textColor = isLight ? '#444' : '#C5BCB2';
+    html += `<text x="${tx}" y="${ty}" fill="${textColor}" font-size="10" font-weight="600" text-anchor="middle" dominant-baseline="middle">${ax.name}</text>`;
+  });
+
+  // Data polygon
+  let dataPts = [];
+  axes.forEach((ax, i) => {
+    const angle = (Math.PI * 2 / n) * i - Math.PI / 2;
+    const valR = (ax.val / 10) * maxR;
+    dataPts.push(`${cx + valR * Math.cos(angle)},${cy + valR * Math.sin(angle)}`);
+  });
+  html += `<polygon points="${dataPts.join(' ')}" fill="rgba(82, 183, 136, 0.25)" stroke="#52B788" stroke-width="2.5" />`;
+  
+  // Data points
+  axes.forEach((ax, i) => {
+    const angle = (Math.PI * 2 / n) * i - Math.PI / 2;
+    const valR = (ax.val / 10) * maxR;
+    html += `<circle cx="${cx + valR * Math.cos(angle)}" cy="${cy + valR * Math.sin(angle)}" r="4" fill="#52B788" stroke="#FFF" stroke-width="1.5" />`;
+  });
+
+  svg.innerHTML = html;
+}
+
+function randomizeRadar() {
+  axes.forEach(a => a.val = Math.round((7.5 + Math.random() * 1.5) * 10) / 10);
+  const avg = Math.round(axes.reduce((s, a) => s + a.val, 0) / axes.length * 10) / 10;
+  document.getElementById('liveScoreValue').innerText = avg.toFixed(1);
+  drawRadar();
+}
+
+// Consensus Radar (4 Cuppers polygon overlap)
+function drawConsensusRadar() {
+  const svg = document.getElementById('consensusRadarSvg');
+  const cx = 150, cy = 120, maxR = 90;
+  const n = axes.length;
+  let html = '';
+
+  for (let r = 1; r <= 4; r++) {
+    const curR = (maxR / 4) * r;
+    let pts = [];
+    for (let i = 0; i < n; i++) {
+      const angle = (Math.PI * 2 / n) * i - Math.PI / 2;
+      pts.push(`${cx + curR * Math.cos(angle)},${cy + curR * Math.sin(angle)}`);
+    }
+    const isLight = document.body.classList.contains('light-mode');
+    html += `<polygon points="${pts.join(' ')}" fill="none" stroke="${isLight ? '#DDD6CC' : '#2A303C'}" stroke-width="1" />`;
+  }
+
+  // 4 Cupper layers
+  const cuppers = [
+    { name: 'Thanh', color: '#52B788', vals: [8.5, 8.8, 8.2, 8.8, 8.6, 8.3, 8.7] },
+    { name: 'Minh', color: '#E5B358', vals: [8.0, 8.5, 8.0, 8.5, 8.4, 8.1, 8.2] },
+    { name: 'An', color: '#9B5DE5', vals: [8.8, 9.0, 8.5, 8.9, 8.8, 8.5, 9.0] },
+    { name: 'Vinh', color: '#6BA8F2', vals: [8.2, 8.3, 8.1, 8.6, 8.2, 8.0, 8.4] }
+  ];
+
+  cuppers.forEach(c => {
+    let pts = [];
+    c.vals.forEach((v, i) => {
+      const angle = (Math.PI * 2 / n) * i - Math.PI / 2;
+      const valR = (v / 10) * maxR;
+      pts.push(`${cx + valR * Math.cos(angle)},${cy + valR * Math.sin(angle)}`);
+    });
+    html += `<polygon points="${pts.join(' ')}" fill="none" stroke="${c.color}" stroke-width="2" opacity="0.8" />`;
+  });
+
+  axes.forEach((ax, i) => {
+    const angle = (Math.PI * 2 / n) * i - Math.PI / 2;
+    const tx = cx + (maxR + 18) * Math.cos(angle);
+    const ty = cy + (maxR + 14) * Math.sin(angle);
+    const isLight = document.body.classList.contains('light-mode');
+    html += `<text x="${tx}" y="${ty}" fill="${isLight ? '#444' : '#C5BCB2'}" font-size="10" font-weight="600" text-anchor="middle" dominant-baseline="middle">${ax.name}</text>`;
+  });
+
+  svg.innerHTML = html;
+}
+
+// Draw Half Flavor Wheel SVG
+function drawWheel() {
+  const svg = document.getElementById('wheelSvg');
+  const cx = 200, cy = 190, r0 = 45, r1 = 175;
+  const groups = [
+    { name: 'Fruity', color: '#F4A9A8' },
+    { name: 'Floral', color: '#D8C6F0' },
+    { name: 'Sweet', color: '#F7C8B2' },
+    { name: 'Nutty', color: '#CDB8A5' },
+    { name: 'Spices', color: '#D7A7C9' },
+    { name: 'Roasted', color: '#E7B48F' },
+    { name: 'Green', color: '#B9DFA6' },
+    { name: 'Sour', color: '#F3D98E' },
+    { name: 'Other', color: '#B7CFE3' }
+  ];
+  
+  const step = 180 / groups.length;
+  let html = '';
+
+  groups.forEach((g, idx) => {
+    const a0 = idx * step;
+    const a1 = (idx + 1) * step;
+    const rad0 = a0 * Math.PI / 180;
+    const rad1 = a1 * Math.PI / 180;
+    
+    const x0 = cx - r1 * Math.cos(rad0), y0 = cy - r1 * Math.sin(rad0);
+    const x1 = cx - r1 * Math.cos(rad1), y1 = cy - r1 * Math.sin(rad1);
+    const x2 = cx - r0 * Math.cos(rad1), y2 = cy - r0 * Math.sin(rad1);
+    const x3 = cx - r0 * Math.cos(rad0), y3 = cy - r0 * Math.sin(rad0);
+
+    const d = `M ${x0.toFixed(1)} ${y0.toFixed(1)} A ${r1} ${r1} 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)} L ${x2.toFixed(1)} ${y2.toFixed(1)} A ${r0} ${r0} 0 0 0 ${x3.toFixed(1)} ${y3.toFixed(1)} Z`;
+    
+    const midAngle = (a0 + a1) / 2;
+    const midRad = midAngle * Math.PI / 180;
+    const rm = (r0 + r1) / 2;
+    const tx = cx - rm * Math.cos(midRad);
+    const ty = cy - rm * Math.sin(midRad);
+    const rot = midAngle <= 90 ? midAngle : midAngle - 180;
+
+    html += `<path d="${d}" fill="${g.color}" onclick="selectWheelGroup('${g.name}')"></path>`;
+    html += `<text x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" transform="rotate(${rot.toFixed(1)} ${tx.toFixed(1)} ${ty.toFixed(1)})" text-anchor="middle" dominant-baseline="middle">${g.name}</text>`;
+  });
+
+  svg.innerHTML = html;
+}
+
+function selectWheelGroup(name) {
+  document.getElementById('wheelPill').innerText = `Đang chọn nhóm: ${name} (chạm để chọn độ đậm 1–5)`;
+}
+
+// Initial renders
+drawRadar();
+drawConsensusRadar();
+drawWheel();
+</script>
+
+</body>
+</html>
