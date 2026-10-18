@@ -1290,5 +1290,10 @@
     }
   });
 
+  if (typeof window !== "undefined") {
+    window.S = S;
+    window.render = render;
+  }
+
   boot();
 })();
