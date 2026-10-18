@@ -15,7 +15,9 @@
     sheet: "", zoom: [], pending: null, q: 0, noteDraft: "",
     toastTimer: null, offline: false, lastWheel: null,
     soloCount: 5, joinDraft: "",
-    tableMode: null, measureDrafts: {}
+    tableMode: null, measureDrafts: {},
+    soloLabels: {}, soloPurpose: null, soloSaving: false, soloSavedAt: null,
+    pinModalOpen: false, pinDraft: "", pinModalError: ""
   };
 
   var ICON = {
@@ -30,6 +32,24 @@
 
   // ---------- tiện ích ----------
   function T(key) { return t(S.lang, key); }
+  var SESSION_PURPOSES = ["QC nội bộ", "hiệu chỉnh đội ngũ", "trải nghiệm khách", "R&D"];
+
+  function getTodayStr() {
+    var now = new Date();
+    var y = now.getFullYear();
+    var m = now.getMonth() + 1;
+    var d = now.getDate();
+    return y + "-" + (m < 10 ? "0" + m : m) + "-" + (d < 10 ? "0" + d : d);
+  }
+
+  function trackVisit(sid, token, name) {
+    if (!sid || !token) return;
+    var today = getTodayStr();
+    var list = storeGet(VISITS_KEY, []);
+    var sessName = name || (S.sess && S.sess.session ? S.sess.session.name : sid);
+    var updated = recordVisit(list, { s: sid, t: token, name: sessName, date: today }, today);
+    storeSet(VISITS_KEY, updated);
+  }
   function isGuest() { return S.identity && S.identity.type === "guest"; }
   function draft() { return S.table.drafts[S.table.cur]; }
   function fmt1(x) { var s = (Math.round(x * 10) / 10).toFixed(1); return S.lang === "en" ? s : s.replace(".", ","); }
@@ -111,6 +131,10 @@
     if (S.sess && S.sess.session && S.sess.session.closed && S.token !== "solo" && !isGuest()) {
       S.tableMode = "measure";
     }
+    if (S.token === "solo") {
+      S.soloLabels = storeGet("cupping:labels:" + S.sid, {}) || {};
+      S.soloPurpose = (S.sess && S.sess.session && S.sess.session.purpose) || "QC nội bộ";
+    }
     S.screen = S.identity ? "table" : "entry";
   }
 
@@ -122,9 +146,11 @@
     var cached = storeGet("cupping:sess:" + S.sid, null);
     if (cached) {
       S.sess = cached;
+      trackVisit(sid, token, (cached.session && cached.session.name) ? cached.session.name : sid);
       startTable();
       render();
     } else {
+      trackVisit(sid, token, sid);
       S.screen = "loading";
       render();
     }
@@ -163,20 +189,35 @@
       },
       samples: samples,
       staff: [
-        { id: "thanh", name: "Thanh (Head of Roaster)" },
-        { id: "minh", name: "Minh" },
-        { id: "an", name: "An" },
-        { id: "vinh", name: "Vinh" }
+        { id: "Thanh", name: "Thanh (Head of Roaster)" },
+        { id: "MiMi", name: "Minh" },
+        { id: "Vinh", name: "Vinh" },
+        { id: "B.An", name: "B.An" },
+        { id: "Tuấn Anh", name: "Tuấn Anh" }
       ],
       taxonomy: tax,
       taxonomy_version: taxVer
     };
     storeSet("cupping:sess:" + sid, S.sess);
     storeSet("cupping:last", { s: sid, t: "solo", name: sessName });
+    trackVisit(sid, "solo", sessName);
 
+    var STAFF_ID_MAP = { "thanh": "Thanh", "minh": "MiMi", "an": "B.An", "vinh": "Vinh" };
     var savedId = storeGet("cupping:id:solo", null);
-    S.identity = savedId || { type: "staff", staff_id: "thanh", name: "Thanh" };
+    if (savedId && STAFF_ID_MAP[savedId.staff_id]) {
+      savedId.staff_id = STAFF_ID_MAP[savedId.staff_id];
+      storeSet("cupping:id:solo", savedId);
+    }
+    if (savedId && S.sess.staff.some(function (p) { return p.id === savedId.staff_id; })) {
+      S.identity = savedId;
+    } else {
+      S.identity = { type: "staff", staff_id: "Thanh", name: "Thanh (Head of Roaster)" };
+    }
     storeSet("cupping:id:" + sid, S.identity);
+
+    S.soloLabels = {};
+    S.soloPurpose = "QC nội bộ";
+    S.soloSavedAt = null;
 
     startTable();
     render();
@@ -207,6 +248,7 @@
       if (r.ok) {
         S.sess = { session: r.session, samples: r.samples, staff: r.staff, taxonomy: r.taxonomy, taxonomy_version: r.taxonomy_version };
         storeSet("cupping:sess:" + S.sid, S.sess);
+        trackVisit(S.sid, S.token, r.session.name);
         startTable(); render(); sync(); syncMeasure();
       } else if (r.error === "NETWORK" && S.sess) {
         S.offline = true; render();
@@ -661,7 +703,7 @@
   function viewTable() {
     var d = draft(), guest = isGuest();
     if (!S.table.order.length) {
-      return '<main class="screen"><div class="toprow">' + syncPill() + '<button type="button" class="nav-hub-btn" data-act="goHub">‹ ' + esc(T("goHub")) + '</button>' + langToggle() + '</div><p class="muted">' + esc(T("noSamples")) + '</p></main>';
+      return '<main class="screen"><div class="toprow">' + syncPill() + '<button type="button" class="nav-hub-btn" data-act="goHub">‹ ' + esc(T("goHub")) + '</button></div><p class="muted">' + esc(T("noSamples")) + '</p></main>';
     }
 
     var canMeasure = S.token !== "solo" && !guest;
@@ -687,7 +729,7 @@
       '<button type="button" class="who" data-act="changeUser">' + esc(S.identity.name) + ' · ' + esc(T("changeUser")) + '</button>' +
       '<button type="button" class="nav-hub-btn" data-act="goSummary" aria-label="' + esc(T("summary")) + '">📊 ' + esc(T("summary")) + '</button>' +
       '<button type="button" class="nav-hub-btn" data-act="goHub" aria-label="' + esc(T("goHub")) + '">🏠 ' + esc(T("goHub")) + '</button>' +
-      langToggle() + '</div>';
+      '</div>';
 
     if (curMode === "measure") {
       var measureChips = S.table.order.map(function (id) {
@@ -917,16 +959,46 @@
   }
 
   function viewHub() {
-    var last = storeGet("cupping:last", null);
-    var resumeCard = "";
-    if (last && last.s && last.t) {
-      var lastName = last.name || last.s;
-      resumeCard = '<div class="card hub-card resume-card">' +
+    var todayStr = getTodayStr();
+    var allVisits = storeGet(VISITS_KEY, []);
+    var todayVisits = visitsToday(allVisits, todayStr);
+    var todayCard = "";
+
+    if (todayVisits.length > 0) {
+      var sortedVisits = todayVisits.slice().reverse();
+      var sessionRows = sortedVisits.map(function (v) {
+        var sessData = storeGet("cupping:sess:" + v.s, null);
+        var sessName = (sessData && sessData.session && sessData.session.name) ? sessData.session.name : (v.name || v.s);
+        var isClosed = !!(sessData && sessData.session && sessData.session.closed);
+
+        var tbl = storeGet("cupping:table:" + v.s, null);
+        var totalSamples = (sessData && sessData.samples) ? sessData.samples.length : (tbl && tbl.drafts ? Object.keys(tbl.drafts).length : 0);
+        var savedCount = (tbl && tbl.saved) ? Object.keys(tbl.saved).length : 0;
+
+        var progressText = "";
+        if (totalSamples > 0) {
+          progressText = savedCount + "/" + totalSamples + " " + T("cuppedDone");
+        } else {
+          progressText = T("inProgress");
+        }
+
+        var closedBadge = isClosed ? '<span class="visit-closed-tag">🔒 ' + esc(T("closedTag")) + '</span>' : '';
+
+        return '<button type="button" class="today-session-item" data-act="openVisit" data-s="' + esc(v.s) + '" data-t="' + esc(v.t) + '">' +
+          '<div class="today-session-info">' +
+          '<div class="today-session-title-row"><span class="today-session-name">' + esc(sessName) + '</span>' + closedBadge + '</div>' +
+          '<span class="today-session-meta">' + esc(progressText) + '</span>' +
+          '</div>' +
+          '<span class="today-session-arrow">›</span>' +
+          '</button>';
+      }).join("");
+
+      todayCard = '<div class="card hub-card today-card">' +
         '<div class="hub-head">' +
-        '<span class="hub-badge">🔄 ' + esc(T("resumeLast")) + '</span>' +
-        '<h3>' + esc(lastName) + '</h3>' +
+        '<span class="hub-badge highlight">📅 ' + esc(T("todaySessions")) + '</span>' +
+        '<h3>' + esc(T("todaySessionsTitle")) + '</h3>' +
         '</div>' +
-        '<button type="button" class="btn-resume" data-act="resumeLast">' + esc(T("resumeBtn")) + '</button>' +
+        '<div class="today-sessions-list">' + sessionRows + '</div>' +
         '</div>';
     }
 
@@ -944,7 +1016,7 @@
       '<h1 class="title">' + esc(T("hubTitle")) + '</h1>' +
       '<p class="muted">' + esc(T("hubSub")) + '</p>' +
       '</div>' +
-      resumeCard +
+      todayCard +
       '<div class="card hub-card solo-card">' +
       '<div class="hub-head">' +
       '<span class="hub-badge primary">☕ ' + esc(T("startSolo")) + '</span>' +
@@ -1068,7 +1140,8 @@
 
     var h = '<div class="toprow">' +
       '<button type="button" class="nav-hub-btn" data-act="backToTable">‹ ' + esc(T("backToTable")) + '</button>' +
-      langToggle() + '</div>' +
+      '<button type="button" class="nav-hub-btn" data-act="goHub">🏠 ' + esc(T("goHub")) + '</button>' +
+      '</div>' +
       '<div class="summary-hero">' +
       '<p class="kicker">INTENSO ROASTERY · CUPPING LAB</p>' +
       '<h1 class="title">' + esc(T("summaryTitle")) + '</h1>' +
@@ -1097,11 +1170,81 @@
       '<div class="card">' +
       '<h2 style="margin:0 0 8px;">' + esc(T("consensusFlavors")) + '</h2>' +
       '<div class="consensus-tags">' + topDescHtml + '</div>' +
-      '</div>' +
-      intensoCardHtml +
+      '</div>';
+
+    var soloSaveCardHtml = "";
+    if (S.token === "solo") {
+      var curPurpose = S.soloPurpose || (S.sess && S.sess.session && S.sess.session.purpose) || "QC nội bộ";
+      var purposeBtns = SESSION_PURPOSES.map(function (p) {
+        var on = p === curPurpose;
+        return '<button type="button" class="solo-purpose-btn' + (on ? ' on' : '') + '" data-act="setSoloPurpose" data-v="' + esc(p) + '">' + esc(purposeText(S.lang, p)) + '</button>';
+      }).join("");
+
+      var labels = S.soloLabels || storeGet("cupping:labels:" + S.sid, {}) || {};
+      var sampleRows = (S.sess && S.sess.samples ? S.sess.samples : []).map(function (s) {
+        var val = labels[s.sample_id] || "";
+        return '<div class="solo-sample-row">' +
+          '<span class="solo-sample-code">' + esc(s.blind_code) + '</span>' +
+          '<input type="text" maxlength="60" class="solo-sample-input" data-id="' + esc(s.sample_id) + '" value="' + esc(val) + '" placeholder="' + esc(T("sampleNamePh")) + '" autocomplete="off">' +
+          '</div>';
+      }).join("");
+
+      var isStaff = S.identity && S.identity.type === "staff";
+      var saveActionHtml = "";
+      if (isStaff) {
+        var saveBtnText = S.soloSaving ? T("saving") : (S.soloSavedAt ? T("resaveToRoastery") : T("saveToRoastery"));
+        var savedTag = S.soloSavedAt ? '<span class="solo-saved-tag">✓ ' + esc(T("savedAt").replace("{time}", S.soloSavedAt)) + '</span>' : '';
+        saveActionHtml = '<div class="solo-save-action-wrap">' +
+          '<button type="button" class="cta-solo-save" data-act="saveSolo" ' + (S.soloSaving ? 'disabled' : '') + '>☁️ ' + esc(saveBtnText) + '</button>' +
+          savedTag +
+          '</div>';
+      } else {
+        saveActionHtml = '<p class="muted small" style="text-align:center;">' + esc(T("guestCannotSaveSolo")) + '</p>';
+      }
+
+      soloSaveCardHtml = '<div class="card solo-save-card">' +
+        '<div class="hub-head">' +
+        '<span class="hub-badge highlight">☁️ ' + esc(T("soloSaveTitle")) + '</span>' +
+        '<p class="muted small">' + esc(T("soloSaveDesc")) + '</p>' +
+        '</div>' +
+        '<div class="solo-purpose-section">' +
+        '<span class="small muted">' + esc(T("soloPurposeLabel")) + '</span>' +
+        '<div class="solo-purpose-grid">' + purposeBtns + '</div>' +
+        '</div>' +
+        '<div class="solo-samples-section">' +
+        '<span class="small muted">' + esc(T("samplesCount")) + ' (' + ((S.sess && S.sess.samples) ? S.sess.samples.length : 0) + ')</span>' +
+        '<div class="solo-samples-list">' + sampleRows + '</div>' +
+        '</div>' +
+        saveActionHtml +
+        '</div>';
+    }
+
+    var pinModalHtml = "";
+    if (S.pinModalOpen) {
+      var pinErrorHtml = S.pinModalError ? '<div class="pin-error-box">⚠️ ' + esc(S.pinModalError) + '</div>' : '';
+      pinModalHtml = '<div class="scrim" data-act="closePinModal"></div>' +
+        '<div class="pin-modal" role="dialog" aria-modal="true">' +
+        '<div class="pin-modal-head">' +
+        '<h3>🔒 ' + esc(T("pinModalTitle")) + '</h3>' +
+        '<button type="button" class="btn-close-modal" data-act="closePinModal" aria-label="' + esc(T("close")) + '">×</button>' +
+        '</div>' +
+        '<p class="pin-modal-desc">' + esc(T("pinModalDesc")) + '</p>' +
+        pinErrorHtml +
+        '<div class="pin-input-wrap">' +
+        '<input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" id="soloPinInput" class="pin-input" placeholder="••••" autocomplete="off" value="' + esc(S.pinDraft) + '">' +
+        '</div>' +
+        '<div class="pin-modal-actions">' +
+        '<button type="button" class="btn-pin-cancel" data-act="closePinModal">' + esc(T("pinCancel")) + '</button>' +
+        '<button type="button" class="btn-pin-submit" data-act="submitPin">' + esc(T("pinSubmit")) + '</button>' +
+        '</div>' +
+        '</div>';
+    }
+
+    h += intensoCardHtml +
+      soloSaveCardHtml +
       '<button type="button" class="cta-copy" data-act="copyReport">📋 ' + esc(T("copyReport")) + '</button>';
 
-    return '<main class="screen summary-screen">' + h + '</main>';
+    return '<main class="screen summary-screen">' + h + '</main>' + pinModalHtml;
   }
 
   function viewError() {
@@ -1166,10 +1309,86 @@
     closeOverlay(); startTable(); render();
   }
 
+  function handleSaveSolo() {
+    var isStaff = S.identity && S.identity.type === "staff";
+    if (!isStaff) {
+      toast(T("guestCannotSaveSolo"));
+      return;
+    }
+    var rememberedPin = storeGet("cupping:pin", "");
+    if (rememberedPin) {
+      submitSoloSave(rememberedPin);
+    } else {
+      S.pinModalOpen = true;
+      S.pinModalError = "";
+      S.pinDraft = "";
+      render();
+    }
+  }
+
+  function submitSoloSave(pin) {
+    if (!pin || !String(pin).trim()) {
+      toast(T("needPin"));
+      return;
+    }
+    var cleanPin = String(pin).trim();
+    var rev = storeGet("cupping:rev", 0);
+    var labels = S.soloLabels || storeGet("cupping:labels:" + S.sid, {}) || {};
+    var curPurpose = S.soloPurpose || (S.sess && S.sess.session && S.sess.session.purpose) || "QC nội bộ";
+    var payload = buildSoloPayload(S.sess, S.table, S.identity, labels, curPurpose, rev);
+
+    S.soloSaving = true;
+    render();
+
+    apiSaveSolo(payload, cleanPin).then(function (r) {
+      S.soloSaving = false;
+      if (r && r.ok) {
+        storeSet("cupping:pin", cleanPin);
+        S.pinModalOpen = false;
+        S.pinModalError = "";
+        S.pinDraft = "";
+        var d = new Date();
+        var hr = d.getHours() < 10 ? "0" + d.getHours() : d.getHours();
+        var mn = d.getMinutes() < 10 ? "0" + d.getMinutes() : d.getMinutes();
+        S.soloSavedAt = hr + ":" + mn;
+        toast(T("soloSavedSuccess"));
+        render();
+      } else {
+        var err = r && r.error ? r.error : "UNKNOWN";
+        if (err === "BAD_PIN") {
+          storeDel("cupping:pin");
+          S.pinDraft = "";
+          S.pinModalError = errorText(S.lang, "BAD_PIN");
+          S.pinModalOpen = true;
+          toast(errorText(S.lang, "BAD_PIN"));
+        } else if (err === "PIN_LOCKED") {
+          S.pinModalError = errorText(S.lang, "PIN_LOCKED");
+          S.pinModalOpen = true;
+          toast(errorText(S.lang, "PIN_LOCKED"));
+        } else if (err === "PIN_NOT_SET") {
+          S.pinModalOpen = false;
+          toast(errorText(S.lang, "PIN_NOT_SET"));
+        } else if (err === "NETWORK") {
+          toast(errorText(S.lang, "NETWORK"));
+        } else {
+          toast(errorText(S.lang, err));
+        }
+        render();
+      }
+    });
+  }
+
   root.addEventListener("input", function (e) {
     if (e.target.id === "guestName") S.guestNameDraft = e.target.value;
     if (e.target.id === "note") S.noteDraft = e.target.value;
     if (e.target.id === "joinInput") S.joinDraft = e.target.value;
+    if (e.target.id === "soloPinInput") S.pinDraft = e.target.value;
+    if (e.target.classList && e.target.classList.contains("solo-sample-input")) {
+      var sId = e.target.getAttribute("data-id");
+      if (!S.soloLabels) S.soloLabels = storeGet("cupping:labels:" + S.sid, {}) || {};
+      S.soloLabels[sId] = e.target.value.slice(0, 60);
+      storeSet("cupping:labels:" + S.sid, S.soloLabels);
+    }
     if (e.target.id === "measure_bean" || e.target.id === "measure_ground" || e.target.id === "measure_tds") {
       if (!S.measureDrafts) S.measureDrafts = {};
       if (!S.measureDrafts[S.table.cur]) S.measureDrafts[S.table.cur] = {};
@@ -1177,6 +1396,13 @@
       if (e.target.id === "measure_ground") S.measureDrafts[S.table.cur].ground = e.target.value;
       if (e.target.id === "measure_tds") S.measureDrafts[S.table.cur].tds = e.target.value;
       updateDeltaPreview();
+    }
+  });
+
+  root.addEventListener("keydown", function (e) {
+    if (e.target.id === "soloPinInput" && e.key === "Enter") {
+      e.preventDefault();
+      submitSoloSave(e.target.value);
     }
   });
   // Ghi chú: 1 lần Undo cho cả đoạn. KHÔNG vẽ lại ở đây — "change" bắn lúc ô mất focus, tức
@@ -1209,6 +1435,32 @@
       case "markCopied":
         var mSampleId = el.getAttribute("data-id");
         handleMarkCopied(mSampleId);
+        break;
+      case "openVisit":
+        var vsid = el.getAttribute("data-s"), vtk = el.getAttribute("data-t");
+        openSession(vsid, vtk);
+        break;
+      case "setSoloPurpose":
+        S.soloPurpose = v;
+        if (S.sess && S.sess.session) {
+          S.sess.session.purpose = v;
+          storeSet("cupping:sess:" + S.sid, S.sess);
+        }
+        render();
+        break;
+      case "saveSolo":
+        handleSaveSolo();
+        break;
+      case "closePinModal":
+        S.pinModalOpen = false;
+        S.pinModalError = "";
+        S.pinDraft = "";
+        render();
+        break;
+      case "submitPin":
+        var pinEl = document.getElementById("soloPinInput");
+        var pVal = pinEl ? pinEl.value : S.pinDraft;
+        submitSoloSave(pVal);
         break;
       case "goHub": S.screen = "hub"; render(); break;
       case "goSummary": S.screen = "summary"; render(); break;

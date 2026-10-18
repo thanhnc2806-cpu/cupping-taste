@@ -50,7 +50,25 @@ var STRINGS = {
     copiedToast: "Đã chép vào bộ nhớ tạm: {text}", copiedIntensoToast: "Đã chép số đo: {text}",
     markCopiedSuccess: "Đã ghi nhận chép sang Intenso",
     noMeasureToSave: "Nhập ít nhất 1 số đo hợp lệ trước khi lưu.",
-    measureSavedToast: "{code}: Đã lưu số đo"
+    measureSavedToast: "{code}: Đã lưu số đo",
+    todaySessions: "Phiên đang nếm hôm nay",
+    todaySessionsTitle: "Tiếp tục bàn nếm trong ngày",
+    cuppedDone: "đã chấm",
+    closedTag: "Đã đóng",
+    sampleNamePh: "Tên mẫu (không bắt buộc)…",
+    soloSaveTitle: "Lưu Cupping Tự Do",
+    soloSaveDesc: "Gửi phiên lên hệ thống phòng rang (08_CUPPING_APP) để Host tổng hợp.",
+    soloPurposeLabel: "Mục đích nếm",
+    saveToRoastery: "Lưu phiên lên phòng rang",
+    resaveToRoastery: "Lưu lại (cập nhật)",
+    savedAt: "Đã lưu lúc {time}",
+    soloSavedSuccess: "Đã lưu phiên Cupping tự do thành công",
+    pinModalTitle: "Mã PIN phòng rang",
+    pinModalDesc: "Nhập mã PIN phòng rang (4–8 chữ số) để xác thực và lưu phiên.",
+    needPin: "Vui lòng nhập mã PIN.",
+    pinCancel: "Huỷ",
+    pinSubmit: "Xác nhận & Lưu",
+    guestCannotSaveSolo: "Chỉ tài khoản Nhân viên mới có thể lưu phiên lên hệ thống."
   },
   en: {
     loading: "Loading session…", synced: "All saved", saving: "Saving", offline: "Waiting to sync — offline",
@@ -102,7 +120,25 @@ var STRINGS = {
     copiedToast: "Copied to clipboard: {text}", copiedIntensoToast: "Copied reading: {text}",
     markCopiedSuccess: "Recorded copy to Intenso",
     noMeasureToSave: "Enter at least 1 valid reading before saving.",
-    measureSavedToast: "{code}: Readings saved"
+    measureSavedToast: "{code}: Readings saved",
+    todaySessions: "Today's Cupping Sessions",
+    todaySessionsTitle: "Resume today's cupping flights",
+    cuppedDone: "cupped",
+    closedTag: "Closed",
+    sampleNamePh: "Sample name (optional)…",
+    soloSaveTitle: "Save Free Cupping",
+    soloSaveDesc: "Sync flight to roastery records (08_CUPPING_APP) for Host review.",
+    soloPurposeLabel: "Cupping purpose",
+    saveToRoastery: "Save flight to Roastery",
+    resaveToRoastery: "Update saved flight",
+    savedAt: "Saved at {time}",
+    soloSavedSuccess: "Free cupping flight saved successfully",
+    pinModalTitle: "Roastery PIN",
+    pinModalDesc: "Enter the roastery PIN (4–8 digits) to authenticate and save.",
+    needPin: "Please enter PIN.",
+    pinCancel: "Cancel",
+    pinSubmit: "Confirm & Save",
+    guestCannotSaveSolo: "Only staff members can save flights to the system."
   }
 };
 

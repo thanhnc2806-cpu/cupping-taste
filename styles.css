@@ -283,4 +283,60 @@ body.light-mode .intenso-notice { background: rgba(200, 122, 56, 0.1); border-co
 
 .intenso-copied-badge { font-size: 12px; font-weight: 600; color: var(--c-finished); display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 8px; background: var(--c-finished-bg); border: 1px solid rgba(82, 183, 136, 0.3); }
 
+/* Hub Today's Sessions */
+.hub-badge.highlight { background: rgba(82, 183, 136, 0.16); color: var(--c-finished); border: 1px solid rgba(82, 183, 136, 0.35); }
+.today-card { border-color: rgba(82, 183, 136, 0.35); background: var(--surface); }
+.today-sessions-list { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.today-session-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-radius: 14px; background: var(--surface2); border: 1px solid var(--line); color: var(--text); text-align: left; cursor: pointer; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); gap: 10px; width: 100%; }
+.today-session-item:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25); }
+.today-session-item:active { transform: scale(0.99); }
+.today-session-info { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.today-session-title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.today-session-name { font-weight: 700; font-size: 15px; color: var(--text); }
+.today-session-meta { font-size: 12px; font-weight: 600; color: var(--accent); }
+.visit-closed-tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; background: rgba(231, 185, 143, 0.12); color: var(--accent); font-size: 11px; font-weight: 700; border: 1px solid rgba(231, 185, 143, 0.25); }
+.today-session-arrow { font-size: 18px; color: var(--muted); font-weight: 700; }
+
+/* Free Cupping Solo Save Card */
+.solo-save-card { padding: 16px; gap: 14px; border-radius: 18px; background: var(--surface); border: 1px solid rgba(107, 168, 242, 0.35); }
+.solo-purpose-section { display: flex; flex-direction: column; gap: 6px; }
+.solo-purpose-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 4px; }
+.solo-purpose-btn { min-height: 42px; padding: 6px 10px; border-radius: 12px; border: 1px solid var(--line2); background: var(--bg); color: var(--muted); font-size: 13px; font-weight: 600; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
+.solo-purpose-btn:hover { border-color: var(--line); color: var(--text); }
+.solo-purpose-btn.on { background: var(--surface2); color: var(--text); border-color: #6BA8F2; font-weight: 700; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2); }
+.solo-samples-section { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.solo-samples-list { display: flex; flex-direction: column; gap: 8px; }
+.solo-sample-row { display: flex; align-items: center; gap: 10px; }
+.solo-sample-code { width: 44px; height: 42px; border-radius: 10px; background: var(--surface2); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; font-family: Fraunces, Georgia, serif; font-size: 15px; font-weight: 700; color: var(--accent); flex-shrink: 0; }
+.solo-sample-input { flex: 1; height: 42px; border-radius: 10px; border: 1px solid var(--line2); background: var(--bg); color: var(--text); padding: 0 12px; font-size: 13px; font-weight: 500; transition: border-color 0.2s, box-shadow 0.2s; }
+.solo-sample-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(231, 185, 143, 0.2); outline: none; }
+.solo-sample-input::placeholder { color: var(--muted); opacity: 0.5; font-size: 12px; }
+.solo-save-action-wrap { display: flex; flex-direction: column; gap: 8px; align-items: center; margin-top: 4px; }
+.cta-solo-save { width: 100%; min-height: 50px; border-radius: 14px; border: none; background: #6BA8F2; color: #0C1A2E; font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1); }
+.cta-solo-save:hover { filter: brightness(1.08); }
+.cta-solo-save:active { transform: scale(0.98); }
+.cta-solo-save:disabled { opacity: 0.55; cursor: default; }
+.solo-saved-tag { font-size: 12px; font-weight: 600; color: var(--c-finished); display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 8px; background: var(--c-finished-bg); border: 1px solid rgba(82, 183, 136, 0.3); }
+
+/* PIN Modal Dialog */
+.pin-modal { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 25; width: min(92vw, 380px); padding: 22px; border-radius: 20px; background: var(--surface); border: 1px solid var(--line2); box-shadow: 0 16px 48px rgba(0, 0, 0, 0.65); display: flex; flex-direction: column; gap: 14px; animation: modalPop 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes modalPop { from { opacity: 0; transform: translate(-50%, -46%) scale(0.95); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+.pin-modal-head { display: flex; align-items: center; justify-content: space-between; }
+.pin-modal-head h3 { margin: 0; font-size: 17px; font-weight: 700; color: var(--text); }
+.btn-close-modal { width: 32px; height: 32px; border-radius: 8px; border: none; background: var(--surface2); color: var(--text); font-size: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.btn-close-modal:hover { background: var(--line); }
+.pin-modal-desc { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.45; }
+.pin-error-box { padding: 10px 12px; border-radius: 10px; background: rgba(231, 111, 81, 0.15); border: 1px solid rgba(231, 111, 81, 0.4); color: var(--bad); font-size: 13px; font-weight: 600; }
+.pin-input-wrap { display: flex; justify-content: center; }
+.pin-input { width: 100%; height: 52px; border-radius: 14px; border: 1.5px solid var(--line2); background: var(--bg); color: var(--text); font-size: 24px; font-weight: 700; text-align: center; letter-spacing: 0.3em; transition: border-color 0.2s, box-shadow 0.2s; }
+.pin-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(231, 185, 143, 0.2); outline: none; }
+.pin-modal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+.btn-pin-cancel { height: 46px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface2); color: var(--text); font-size: 14px; font-weight: 600; cursor: pointer; }
+.btn-pin-submit { height: 46px; border-radius: 12px; border: none; background: var(--accent); color: var(--bg); font-size: 14px; font-weight: 700; cursor: pointer; transition: transform 0.15s; }
+.btn-pin-submit:active { transform: scale(0.97); }
+
+body.light-mode .pin-modal { box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18); }
+body.light-mode .cta-solo-save { background: #3B82F6; color: #FFFFFF; }
+
+
 
