@@ -106,7 +106,12 @@ var ERRORS = {
     GUEST_DEFECTS_NOT_ALLOWED: "Khách không ghi lỗi.", NOTE_TOO_LONG: "Ghi chú tối đa 500 ký tự.",
     BAD_REVISION: "Dữ liệu hỏng — tải lại trang.", SERVER_ERROR: "Máy chủ đang bận — sẽ tự gửi lại.",
     NETWORK: "Mất mạng — sẽ tự gửi lại khi có mạng.", BAD_LINK: "Thiếu link phiên hợp lệ — quét lại QR.",
-    UNKNOWN: "Có lỗi không rõ — thử lại."
+    UNKNOWN: "Có lỗi không rõ — thử lại.",
+    BAD_MEASURE: "Số đo ngoài dải — màu 20–130, TDS 0,5–3,0. Kiểm lại dấu phẩy.",
+    MEASURE_WINDOW_CLOSED: "Đã quá 24 giờ sau khi đóng phiên — không nhập số đo được nữa.",
+    BAD_SOLO: "Dữ liệu phiên tự do không hợp lệ — tối đa 10 mẫu, tên mẫu ≤ 60 ký tự.",
+    BAD_PIN: "Sai PIN phòng rang.", PIN_LOCKED: "Sai PIN quá 5 lần — thử lại sau 15 phút.",
+    PIN_NOT_SET: "Phòng rang chưa đặt PIN — nhờ Host đặt trước."
   },
   en: {
     BAD_REQUEST: "Invalid request — reload the page.", BODY_TOO_LARGE: "Too much data — trim descriptors or notes.",
@@ -120,7 +125,12 @@ var ERRORS = {
     GUEST_DEFECTS_NOT_ALLOWED: "Guests don't record defects.", NOTE_TOO_LONG: "Notes are limited to 500 characters.",
     BAD_REVISION: "Corrupted data — reload the page.", SERVER_ERROR: "Server busy — will retry automatically.",
     NETWORK: "Offline — will send when back online.", BAD_LINK: "Missing a valid session link — scan the QR again.",
-    UNKNOWN: "Unknown error — try again."
+    UNKNOWN: "Unknown error — try again.",
+    BAD_MEASURE: "Reading out of range — color 20–130, TDS 0.5–3.0. Check the decimal mark.",
+    MEASURE_WINDOW_CLOSED: "More than 24 hours since the session closed — readings can no longer be entered.",
+    BAD_SOLO: "Invalid free-cupping data — max 10 samples, sample names ≤ 60 characters.",
+    BAD_PIN: "Wrong roastery PIN.", PIN_LOCKED: "Too many wrong PINs — try again in 15 minutes.",
+    PIN_NOT_SET: "Roastery PIN not set yet — ask the host to set it."
   }
 };
 
