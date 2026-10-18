@@ -137,6 +137,60 @@ function queueAck(queue, sessionId, sampleId, revision) {
 
 function isRetryable(code) { return code === "NETWORK" || code === "SERVER_ERROR"; }
 
+// ===== T6 p1 — số đo màu/TDS, phiên hôm nay, lưu Cupping tự do =====
+var MEASURE_KEYS_ = ["bean", "ground", "tds"];
+function isNum_(v) { return typeof v === "number" && isFinite(v); }
+
+// Bàn phím Việt gõ "1,35" — nhận cả dấu phẩy lẫn dấu chấm. Không phải số → null.
+function parseDecimalInput(str) {
+  var s = String(str === undefined || str === null ? "" : str).trim().replace(",", ".");
+  if (!/^\d+(\.\d+)?$/.test(s)) return null;
+  return Number(s);
+}
+
+function measureChipState(measure) {
+  var n = MEASURE_KEYS_.filter(function (k) { return isNum_(measure && measure[k]); }).length;
+  return n === 3 ? "full" : n ? "partial" : "none";
+}
+
+function groundBelowBean(measure) { return isNum_(measure.bean) && isNum_(measure.ground) && measure.ground < measure.bean; }
+
+function sameMeasureItem_(q, sessionId, sampleId) { return q.session_id === sessionId && q.measure.sample_id === sampleId; }
+
+function measureQueueUpsert(queue, item) {
+  var old = null;
+  var rest = queue.filter(function (q) {
+    if (sameMeasureItem_(q, item.session_id, item.measure.sample_id)) { old = q; return false; }
+    return true;
+  });
+  var merged = clone_(item);
+  if (old) MEASURE_KEYS_.forEach(function (k) { if (!isNum_(merged.measure[k]) && isNum_(old.measure[k])) merged.measure[k] = old.measure[k]; });
+  return rest.concat([merged]);
+}
+
+function measureQueueAck(queue, sessionId, sampleId, sentMeasure) {
+  return queue.filter(function (q) {
+    if (!sameMeasureItem_(q, sessionId, sampleId)) return true;
+    return MEASURE_KEYS_.some(function (k) { return (q.measure[k] === undefined ? "" : q.measure[k]) !== (sentMeasure[k] === undefined ? "" : sentMeasure[k]); });
+  });
+}
+
+var VISITS_MAX = 20;
+function recordVisit(visits, visit, todayStr) {
+  return visitsToday(visits, todayStr).filter(function (v) { return v.s !== visit.s; }).concat([visit]).slice(-VISITS_MAX);
+}
+function visitsToday(visits, todayStr) { return (visits || []).filter(function (v) { return v.date === todayStr; }); }
+
+// Cả phiên tự do một lần; entries = mẫu đã đủ 7 điểm.
+function buildSoloPayload(sess, table, identity, labels, purpose, revision) {
+  var samples = sess.samples.map(function (s) {
+    return { sample_id: s.sample_id, blind_code: s.blind_code, label: String((labels && labels[s.sample_id]) || "").trim().slice(0, 60) };
+  });
+  var entries = table.order.filter(function (id) { return missingScores(table.drafts[id]).length === 0; })
+    .map(function (id) { return buildEntry(table.drafts[id], identity, id, revision); });
+  return { session_id: sess.session.id, solo: { name: sess.session.name, purpose: purpose, samples: samples, entries: entries } };
+}
+
 if (typeof module !== "undefined") {
   module.exports = {
     SCORE_FIELDS: SCORE_FIELDS, emptyDraft: emptyDraft, createTable: createTable, addSamples: addSamples,
@@ -145,6 +199,9 @@ if (typeof module !== "undefined") {
     missingScores: missingScores, liveAverage: liveAverage, sampleStatus: sampleStatus,
     markSaved: markSaved, unmarkSaved: unmarkSaved, nextUnsaved: nextUnsaved,
     buildEntry: buildEntry, nextRevision: nextRevision,
-    queueUpsert: queueUpsert, queueAck: queueAck, isRetryable: isRetryable
+    queueUpsert: queueUpsert, queueAck: queueAck, isRetryable: isRetryable,
+    parseDecimalInput: parseDecimalInput, measureChipState: measureChipState, groundBelowBean: groundBelowBean,
+    measureQueueUpsert: measureQueueUpsert, measureQueueAck: measureQueueAck,
+    recordVisit: recordVisit, visitsToday: visitsToday, buildSoloPayload: buildSoloPayload
   };
 }

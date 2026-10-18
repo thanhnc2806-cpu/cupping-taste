@@ -59,3 +59,31 @@ function flushQueue(onEvent) {
     });
   })();
 }
+
+// ===== T6 p1 — hàng đợi số đo màu/TDS, phiên hôm nay, lưu Cupping tự do =====
+var MQUEUE_KEY = "cupping:mqueue";
+var VISITS_KEY = "cupping:visits";
+
+function enqueueMeasure(item) { storeSet(MQUEUE_KEY, measureQueueUpsert(storeGet(MQUEUE_KEY, []), item)); }
+
+var mflushing_ = false;
+// Cùng kiểu flushQueue: mạng/máy chủ bận → dừng giữ lại; lỗi khác → bỏ mục, báo "rejected".
+function flushMeasureQueue(onEvent) {
+  if (mflushing_) return;
+  mflushing_ = true;
+  (function next() {
+    var q = storeGet(MQUEUE_KEY, []);
+    if (!q.length) { mflushing_ = false; onEvent({ type: "idle" }); return; }
+    var item = q[0], m = item.measure;
+    apiPost("saveMeasure", item.session_id, item.token, { measure: m }).then(function (r) {
+      if (!r.ok && isRetryable(r.error)) { mflushing_ = false; onEvent({ type: "offline", error: r.error }); return; }
+      storeSet(MQUEUE_KEY, measureQueueAck(storeGet(MQUEUE_KEY, []), item.session_id, m.sample_id, m));
+      if (r.ok) onEvent({ type: "saved", session_id: item.session_id, sample_id: m.sample_id, measure: r.measure, color_sheet: r.color_sheet });
+      else onEvent({ type: "rejected", session_id: item.session_id, sample_id: m.sample_id, error: r.error });
+      next();
+    });
+  })();
+}
+
+// PIN phòng rang đi ở ô token — phiên tự do không có token phiên.
+function apiSaveSolo(payload, pin) { return apiPost("saveSolo", payload.session_id, String(pin), { solo: payload.solo }); }
