@@ -191,6 +191,18 @@ function buildSoloPayload(sess, table, identity, labels, purpose, revision) {
   return { session_id: sess.session.id, solo: { name: sess.session.name, purpose: purpose, samples: samples, entries: entries } };
 }
 
+// Chuyển phiên (Hub → phiên khác): bỏ trạng thái của phiên trước để startTable nạp đúng bàn đã lưu của phiên mới.
+function sessionReset() { return { table: null, sess: null, measureDrafts: {}, tableMode: null, soloSavedAt: null }; }
+
+// Người đã nhớ cho phiên tự do: chỉ nhận nhân viên có trong danh sách (mã cũ thường → mã thật); không có thì null (bắt chọn tên).
+var LEGACY_STAFF_IDS = { thanh: "Thanh", minh: "MiMi", an: "B.An", vinh: "Vinh" };
+function resolveSoloIdentity(saved, staff) {
+  if (!saved || saved.type !== "staff") return null;
+  var id = Object.prototype.hasOwnProperty.call(LEGACY_STAFF_IDS, saved.staff_id) ? LEGACY_STAFF_IDS[saved.staff_id] : saved.staff_id;
+  var p = (staff || []).filter(function (x) { return x.id === id; })[0];
+  return p ? { type: "staff", staff_id: p.id, name: p.name } : null;
+}
+
 if (typeof module !== "undefined") {
   module.exports = {
     SCORE_FIELDS: SCORE_FIELDS, emptyDraft: emptyDraft, createTable: createTable, addSamples: addSamples,
@@ -202,6 +214,7 @@ if (typeof module !== "undefined") {
     queueUpsert: queueUpsert, queueAck: queueAck, isRetryable: isRetryable,
     parseDecimalInput: parseDecimalInput, measureChipState: measureChipState, groundBelowBean: groundBelowBean,
     measureQueueUpsert: measureQueueUpsert, measureQueueAck: measureQueueAck,
+    sessionReset: sessionReset, resolveSoloIdentity: resolveSoloIdentity,
     recordVisit: recordVisit, visitsToday: visitsToday, buildSoloPayload: buildSoloPayload
   };
 }

@@ -142,6 +142,7 @@
   function showError(code, retryable) { S.screen = "error"; S.errorCode = code; S.errorRetryable = !!retryable; render(); }
 
   function openSession(sid, token) {
+    Object.assign(S, sessionReset());
     S.sid = sid; S.token = token;
     S.identity = storeGet("cupping:id:" + S.sid, null);
     var cached = storeGet("cupping:sess:" + S.sid, null);
@@ -179,6 +180,7 @@
       : (S.sess && S.sess.taxonomy ? S.sess.taxonomy : []);
     var taxVer = typeof TAXONOMY_VERSION !== "undefined" ? TAXONOMY_VERSION : "sca-2024";
 
+    Object.assign(S, sessionReset());
     var sessName = (S.lang === "en" ? "Solo Cupping · " : "Cupping tự do · ") + dateStr;
     S.sid = sid;
     S.token = "solo";
@@ -203,18 +205,9 @@
     storeSet("cupping:last", { s: sid, t: "solo", name: sessName });
     trackVisit(sid, "solo", sessName);
 
-    var STAFF_ID_MAP = { "thanh": "Thanh", "minh": "MiMi", "an": "B.An", "vinh": "Vinh" };
-    var savedId = storeGet("cupping:id:solo", null);
-    if (savedId && STAFF_ID_MAP[savedId.staff_id]) {
-      savedId.staff_id = STAFF_ID_MAP[savedId.staff_id];
-      storeSet("cupping:id:solo", savedId);
-    }
-    if (savedId && S.sess.staff.some(function (p) { return p.id === savedId.staff_id; })) {
-      S.identity = savedId;
-    } else {
-      S.identity = { type: "staff", staff_id: "Thanh", name: "Thanh (Head of Roaster)" };
-    }
-    storeSet("cupping:id:" + sid, S.identity);
+    // Không mặc định Thanh: chưa nhớ người nào thì startTable đưa sang màn chọn tên.
+    S.identity = resolveSoloIdentity(storeGet("cupping:id:solo", null), S.sess.staff);
+    if (S.identity) storeSet("cupping:id:" + sid, S.identity);
 
     S.soloLabels = {};
     S.soloPurpose = "QC nội bộ";
@@ -1297,6 +1290,7 @@
       S.identity = { type: "guest", guest_id: uuid(), name: name.slice(0, 40) }; // mã MỚI cho mỗi khách (spec §5.1)
     }
     storeSet("cupping:id:" + S.sid, S.identity);
+    if (S.token === "solo") storeSet("cupping:id:solo", S.identity);
     S.screen = "table";
     S.table = selectSample(S.table, nextUnsaved(S.table));
     render();
