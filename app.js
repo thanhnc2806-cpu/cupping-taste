@@ -555,9 +555,7 @@
     }
 
     var staffId = S.identity ? S.identity.staff_id : "";
-    if (!staffId && S.sess && S.sess.staff && S.sess.staff.length) {
-      staffId = S.sess.staff[0].id;
-    }
+    if (!staffId) { toast(T("needStaff")); return; }
 
     var mPayload = { sample_id: curId, staff_id: staffId };
     if (b !== undefined) mPayload.bean = b;
@@ -600,9 +598,6 @@
   function handleMarkCopied(sampleId) {
     if (!sampleId) return;
     var staffId = S.identity ? S.identity.staff_id : "";
-    if (!staffId && S.sess && S.sess.staff && S.sess.staff.length) {
-      staffId = S.sess.staff[0].id;
-    }
     if (!staffId) {
       toast(T("needStaff"));
       return;
@@ -1289,11 +1284,6 @@
         render(); break;
     }
   });
-
-  if (typeof window !== "undefined") {
-    window.S = S;
-    window.render = render;
-  }
 
   boot();
 })();
