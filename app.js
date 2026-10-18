@@ -53,6 +53,7 @@
   function isGuest() { return S.identity && S.identity.type === "guest"; }
   function draft() { return S.table.drafts[S.table.cur]; }
   function fmt1(x) { var s = (Math.round(x * 10) / 10).toFixed(1); return S.lang === "en" ? s : s.replace(".", ","); }
+  function fmt2(x) { var s = (Math.round(x * 100) / 100).toFixed(2); return S.lang === "en" ? s : s.replace(".", ","); } // TDS 1,35 — không làm tròn 1 số lẻ
   function dots(n) { return "●●●●●".slice(0, n) + "○○○○○".slice(0, 5 - n); }
   function fieldName(key) { var f = FIELDS.filter(function (x) { return x.key === key; })[0]; return S.lang === "en" ? f.en : f.vi; }
   function sampleCode(id) {
@@ -771,8 +772,8 @@
 
       var valTds = dM.tds !== undefined ? dM.tds : "";
       var hasTds = typeof curM.tds === "number" && isFinite(curM.tds);
-      var badgeTds = hasTds ? '<span class="measure-badge-saved">' + esc(T("existingVal").replace("{val}", fmt1(curM.tds) + "%")) + '</span>' : "";
-      var phTds = hasTds ? fmt1(curM.tds) : T("tdsPh");
+      var badgeTds = hasTds ? '<span class="measure-badge-saved">' + esc(T("existingVal").replace("{val}", fmt2(curM.tds) + "%")) + '</span>' : "";
+      var phTds = hasTds ? fmt2(curM.tds) : T("tdsPh");
 
       var effB = parseDecimalInput(valBean); if (effB === null && hasBean) effB = curM.bean;
       var effG = parseDecimalInput(valGround); if (effG === null && hasGround) effG = curM.ground;
@@ -1332,7 +1333,8 @@
       return;
     }
     var cleanPin = String(pin).trim();
-    var rev = storeGet("cupping:rev", 0);
+    var rev = nextRevision(storeGet("cupping:rev", 0), Date.now()); // máy chủ từ chối revision 0 (BAD_REVISION)
+    storeSet("cupping:rev", rev);
     var labels = S.soloLabels || storeGet("cupping:labels:" + S.sid, {}) || {};
     var curPurpose = S.soloPurpose || (S.sess && S.sess.session && S.sess.session.purpose) || "QC nội bộ";
     var payload = buildSoloPayload(S.sess, S.table, S.identity, labels, curPurpose, rev);
