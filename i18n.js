@@ -34,7 +34,23 @@ var STRINGS = {
     radarCompare: "So sánh hình thái CVA (Radar)", consensusFlavors: "Nốt hương nổi bật nhất",
     copyReport: "Sao chép báo cáo", reportCopied: "Đã sao chép báo cáo vào bộ nhớ tạm!",
     noDataSummary: "Chưa có mẫu nào được chấm điểm xong.", votes: "lượt",
-    allDoneBanner: "Đã nếm xong tất cả mẫu · Bấm để xem tổng kết ›"
+    allDoneBanner: "Đã nếm xong tất cả mẫu · Bấm để xem tổng kết ›",
+    modeTaste: "Nếm", modeMeasure: "Đo màu · TDS",
+    beanColor: "Màu hạt", beanColorPh: "20 – 130",
+    groundColor: "Màu bột", groundColorPh: "20 – 130",
+    tdsPercent: "TDS (%)", tdsPh: "0,5 – 3,0",
+    deltaColor: "Delta (Bột − Hạt)", saveReadings: "Lưu số đo",
+    unmeasured: "Chưa đo", measuring: "Đang đo", measuredFull: "Đủ số", readingsOf: "số đo",
+    savedBean: "Hạt: {val}", savedGround: "Bột: {val}", savedTds: "TDS: {val}%", existingVal: "Đã có: {val}",
+    confirmGroundBelowBean: "Bột thấp hơn hạt — chắc chưa?",
+    closedMeasureOnly: "Đã đóng — chỉ nhập số đo",
+    intensoBlockTitle: "Chép sang Intenso",
+    intensoNotice: "Hàng ngày bên Intenso là NGÀY RANG (tháng/ngày, vd 10/14) — không phải hôm nay.",
+    copyBtn: "Chép", copiedBtn: "Đã chép", copiedBy: "Đã chép: {label}",
+    copiedToast: "Đã chép vào bộ nhớ tạm: {text}", copiedIntensoToast: "Đã chép số đo: {text}",
+    markCopiedSuccess: "Đã ghi nhận chép sang Intenso",
+    noMeasureToSave: "Nhập ít nhất 1 số đo hợp lệ trước khi lưu.",
+    measureSavedToast: "{code}: Đã lưu số đo"
   },
   en: {
     loading: "Loading session…", synced: "All saved", saving: "Saving", offline: "Waiting to sync — offline",
@@ -70,7 +86,23 @@ var STRINGS = {
     radarCompare: "CVA Profile Comparison (Radar)", consensusFlavors: "Top consensus descriptors",
     copyReport: "Copy report", reportCopied: "Report copied to clipboard!",
     noDataSummary: "No samples completed yet.", votes: "votes",
-    allDoneBanner: "All samples cupped · Tap to view summary ›"
+    allDoneBanner: "All samples cupped · Tap to view summary ›",
+    modeTaste: "Taste", modeMeasure: "Measure · TDS",
+    beanColor: "Bean Color", beanColorPh: "20 – 130",
+    groundColor: "Ground Color", groundColorPh: "20 – 130",
+    tdsPercent: "TDS (%)", tdsPh: "0.5 – 3.0",
+    deltaColor: "Delta (Ground − Bean)", saveReadings: "Save readings",
+    unmeasured: "Unmeasured", measuring: "In progress", measuredFull: "Complete", readingsOf: "readings",
+    savedBean: "Bean: {val}", savedGround: "Ground: {val}", savedTds: "TDS: {val}%", existingVal: "Saved: {val}",
+    confirmGroundBelowBean: "Ground is lighter than bean — are you sure?",
+    closedMeasureOnly: "Closed — measure readings only",
+    intensoBlockTitle: "Copy to Intenso",
+    intensoNotice: "Date column in Intenso is ROAST DATE (month/day, e.g. 10/14) — not today.",
+    copyBtn: "Copy", copiedBtn: "Copied", copiedBy: "Copied: {label}",
+    copiedToast: "Copied to clipboard: {text}", copiedIntensoToast: "Copied reading: {text}",
+    markCopiedSuccess: "Recorded copy to Intenso",
+    noMeasureToSave: "Enter at least 1 valid reading before saving.",
+    measureSavedToast: "{code}: Readings saved"
   }
 };
 

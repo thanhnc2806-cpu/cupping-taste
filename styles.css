@@ -213,4 +213,74 @@ body.light-mode button.pill { background: #EAE4DC; }
 .cta-copy { width: 100%; min-height: 52px; border-radius: 14px; border: none; background: var(--accent); color: var(--bg); font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; transition: transform 0.15s, opacity 0.2s; }
 .cta-copy:active { transform: scale(0.98); }
 
+/* Mode Switch Tabs (Nếm vs Đo màu · TDS) */
+.table-mode-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 4px; border-radius: 16px; background: var(--surface2); border: 1px solid var(--line); }
+.mode-tab { min-height: 42px; border-radius: 12px; border: none; background: transparent; color: var(--muted); font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
+.mode-tab.active { background: var(--surface); color: var(--text); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25); border: 1px solid var(--line2); }
+body.light-mode .mode-tab.active { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); }
+
+/* Closed Session Notice Banner */
+.closed-banner { padding: 10px 14px; border-radius: 14px; background: rgba(231, 185, 143, 0.12); border: 1px solid rgba(231, 185, 143, 0.35); color: var(--accent); font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 8px; text-align: left; }
+
+/* Measure Chip States */
+.chip.chip-measure { min-width: 90px; }
+.chip.chip-measure-none { background: var(--surface2); color: var(--muted); border-color: var(--line); }
+.chip.chip-measure-partial { background: var(--c-inprogress-bg); color: var(--c-inprogress); border-color: rgba(107, 168, 242, 0.4); }
+.chip.chip-measure-full { background: var(--c-finished-bg); color: var(--c-finished); border-color: rgba(82, 183, 136, 0.45); }
+.chip.chip-measure.on { border-color: var(--accent); }
+.chip.chip-measure-full.on { border-color: var(--c-finished); }
+.chip.chip-measure-partial.on { border-color: var(--c-inprogress); }
+
+/* Measure Form */
+.measure-headline { display: flex; flex-direction: column; gap: 4px; }
+.measure-headline .code { font-size: 26px; }
+.measure-progress-tag { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--surface2); color: var(--soft); align-self: flex-start; }
+.measure-progress-tag.full { background: var(--c-finished-bg); color: var(--c-finished); }
+.measure-progress-tag.partial { background: var(--c-inprogress-bg); color: var(--c-inprogress); }
+
+.measure-grid { display: flex; flex-direction: column; gap: 12px; }
+.measure-card { padding: 14px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; transition: border-color 0.2s; }
+.measure-card:focus-within { border-color: var(--accent); }
+.measure-card-header { display: flex; align-items: center; justify-content: space-between; }
+.measure-card-title { font-size: 14px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 6px; }
+.measure-badge-saved { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--surface2); color: var(--accent); border: 1px solid rgba(231, 185, 143, 0.25); }
+
+.measure-input-wrap { display: flex; align-items: center; gap: 8px; position: relative; }
+.measure-input { flex: 1; height: 52px; border-radius: 14px; border: 1.5px solid var(--line2); background: var(--bg); color: var(--text); font-family: Fraunces, Georgia, serif; font-size: 22px; font-weight: 700; padding: 0 16px; transition: border-color 0.2s, box-shadow 0.2s; }
+.measure-input::placeholder { color: var(--muted); opacity: 0.5; font-size: 16px; font-family: "Be Vietnam Pro", system-ui, sans-serif; font-weight: 500; }
+.measure-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(231, 185, 143, 0.18); outline: none; }
+.measure-unit { font-size: 13px; font-weight: 700; color: var(--muted); min-width: 32px; }
+
+.delta-preview { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-radius: 12px; background: var(--surface2); border: 1px dashed var(--line); font-size: 13px; color: var(--soft); font-weight: 600; }
+.delta-val { font-family: Fraunces, Georgia, serif; font-size: 16px; font-weight: 700; color: var(--accent); }
+
+.cta-measure { width: 100%; min-height: 52px; border-radius: 14px; border: none; background: var(--accent); color: var(--bg); font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; transition: transform 0.15s, opacity 0.2s; }
+.cta-measure:active { transform: scale(0.98); }
+
+/* Intenso Copy Block in Summary Screen */
+.intenso-card { padding: 16px; gap: 12px; border-radius: 18px; background: var(--surface); border: 1px solid var(--line); }
+.intenso-card h2 { margin: 0; font-size: 16px; font-weight: 700; color: var(--text); }
+.intenso-notice { margin: 0; padding: 10px 12px; border-radius: 12px; background: rgba(229, 179, 88, 0.12); border: 1px solid rgba(229, 179, 88, 0.3); color: #E5B358; font-size: 12px; font-weight: 600; line-height: 1.45; }
+body.light-mode .intenso-notice { background: rgba(200, 122, 56, 0.1); border-color: rgba(200, 122, 56, 0.3); color: #9A5016; }
+
+.intenso-list { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.intenso-item { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 14px; background: var(--surface2); border: 1px solid var(--line); }
+.intenso-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.intenso-title-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.intenso-name { font-weight: 700; font-size: 14px; color: var(--text); }
+.intenso-date-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 6px; background: rgba(107, 168, 242, 0.16); color: #6BA8F2; font-size: 11px; font-weight: 700; border: 1px solid rgba(107, 168, 242, 0.3); }
+
+.intenso-bottom { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.intenso-val-code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 15px; font-weight: 700; color: var(--accent); background: var(--bg); padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line2); letter-spacing: 0.05em; }
+
+.intenso-actions { display: flex; align-items: center; gap: 6px; }
+.btn-intenso-copy { min-height: 38px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.15s; }
+.btn-intenso-copy:hover { border-color: var(--accent); color: var(--accent); }
+.btn-intenso-copy:active { transform: scale(0.96); }
+
+.btn-intenso-mark { min-height: 38px; padding: 0 14px; border-radius: 10px; border: 1.5px solid var(--c-finished); background: var(--c-finished-bg); color: var(--c-finished); font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; transition: all 0.15s; }
+.btn-intenso-mark:active { transform: scale(0.96); }
+
+.intenso-copied-badge { font-size: 12px; font-weight: 600; color: var(--c-finished); display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 8px; background: var(--c-finished-bg); border: 1px solid rgba(82, 183, 136, 0.3); }
+
 

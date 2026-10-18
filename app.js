@@ -14,7 +14,8 @@
     role: "staff", pickStaff: null, guestNameDraft: "",
     sheet: "", zoom: [], pending: null, q: 0, noteDraft: "",
     toastTimer: null, offline: false, lastWheel: null,
-    soloCount: 5, joinDraft: ""
+    soloCount: 5, joinDraft: "",
+    tableMode: null, measureDrafts: {}
   };
 
   var ICON = {
@@ -107,6 +108,9 @@
       var saved = storeGet("cupping:table:" + S.sid, null);
       S.table = createTable(ids, saved && saved.drafts, saved && saved.saved);
     }
+    if (S.sess && S.sess.session && S.sess.session.closed && S.token !== "solo" && !isGuest()) {
+      S.tableMode = "measure";
+    }
     S.screen = S.identity ? "table" : "entry";
   }
 
@@ -188,10 +192,12 @@
       render();
     }
     window.addEventListener("online", sync);
+    window.addEventListener("online", syncMeasure);
     window.addEventListener("online", function () {
       if (S.screen === "error" && S.errorRetryable) fetchSession();
     });
     setInterval(sync, 15000);
+    setInterval(syncMeasure, 15000);
     setInterval(refreshSamples, 30000);
   }
 
@@ -201,7 +207,7 @@
       if (r.ok) {
         S.sess = { session: r.session, samples: r.samples, staff: r.staff, taxonomy: r.taxonomy, taxonomy_version: r.taxonomy_version };
         storeSet("cupping:sess:" + S.sid, S.sess);
-        startTable(); render(); sync();
+        startTable(); render(); sync(); syncMeasure();
       } else if (r.error === "NETWORK" && S.sess) {
         S.offline = true; render();
       } else if (isRetryable(r.error) && !S.sess) {
@@ -214,7 +220,13 @@
     });
   }
 
-  function softRender() { if (S.sheet !== "card" && S.screen !== "entry") render(); } // không cướp ô đang gõ
+  function softRender() {
+    if (S.sheet !== "card" && S.screen !== "entry") {
+      var act = document.activeElement;
+      if (act && act.classList && act.classList.contains("measure-input")) return;
+      render();
+    }
+  } // không cướp ô đang gõ
 
   function refreshSamples() {
     if (!S.sess || S.screen !== "table" || S.token === "solo") return;
@@ -237,6 +249,26 @@
         softRender(); // gỡ dấu ✓ giả trên chip mẫu — tách khỏi toast, toast tự vẽ ở lớp riêng
         toast(sampleCode(ev.sample_id) + ": " + errorText(S.lang, ev.error));
         return;
+      }
+      softRender();
+    });
+  }
+
+  function syncMeasure() {
+    flushMeasureQueue(function (ev) {
+      if (ev.type === "offline") S.offline = true;
+      if (ev.type === "saved" || ev.type === "idle") S.offline = false;
+      if (ev.type === "saved") {
+        if (S.sess && S.sess.samples) {
+          var smp = S.sess.samples.filter(function (x) { return x.sample_id === ev.sample_id; })[0];
+          if (smp && ev.measure) {
+            smp.measure = ev.measure;
+            storeSet("cupping:sess:" + S.sid, S.sess);
+          }
+        }
+      }
+      if (ev.type === "rejected") {
+        toast(sampleCode(ev.sample_id) + ": " + errorText(S.lang, ev.error));
       }
       softRender();
     });
@@ -423,18 +455,23 @@
 
   function copyReportToClipboard() {
     var text = generateReportText();
+    copyTextToClipboard(text, T("reportCopied"));
+  }
+
+  function copyTextToClipboard(text, successMsg) {
+    var msg = successMsg || T("reportCopied");
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(function () {
-        toast(T("reportCopied"));
+        toast(msg);
       }).catch(function () {
-        fallbackCopy(text);
+        fallbackCopy(text, msg);
       });
     } else {
-      fallbackCopy(text);
+      fallbackCopy(text, msg);
     }
   }
 
-  function fallbackCopy(text) {
+  function fallbackCopy(text, successMsg) {
     try {
       var ta = document.createElement("textarea");
       ta.value = text;
@@ -445,10 +482,147 @@
       ta.select();
       document.execCommand("copy");
       document.body.removeChild(ta);
-      toast(T("reportCopied"));
+      toast(successMsg || T("reportCopied"));
     } catch (e) {
       toast("Không thể sao chép");
     }
+  }
+
+  function updateDeltaPreview() {
+    var deltaEl = document.querySelector(".delta-preview");
+    if (!deltaEl) return;
+    var curSample = (S.sess && S.sess.samples ? S.sess.samples : []).filter(function (x) { return x.sample_id === S.table.cur; })[0] || {};
+    var curM = curSample.measure || {};
+    var dM = (S.measureDrafts && S.measureDrafts[S.table.cur]) || {};
+    var valB = dM.bean !== undefined ? dM.bean : "";
+    var valG = dM.ground !== undefined ? dM.ground : "";
+    var effB = parseDecimalInput(valB); if (effB === null && typeof curM.bean === "number") effB = curM.bean;
+    var effG = parseDecimalInput(valG); if (effG === null && typeof curM.ground === "number") effG = curM.ground;
+    if (effB !== null && effG !== null) {
+      var dVal = Math.round((effG - effB) * 10) / 10;
+      deltaEl.innerHTML = '<span>' + esc(T("deltaColor")) + '</span><span class="delta-val">' + (dVal > 0 ? "+" : "") + esc(fmt1(dVal)) + '</span>';
+      deltaEl.style.display = "flex";
+    } else {
+      deltaEl.style.display = "none";
+    }
+  }
+
+  function handleSaveMeasure() {
+    var curId = S.table.cur;
+    var curSample = (S.sess && S.sess.samples ? S.sess.samples : []).filter(function (x) { return x.sample_id === curId; })[0] || {};
+    var curM = curSample.measure || {};
+    var dM = (S.measureDrafts && S.measureDrafts[curId]) || {};
+
+    var bVal = dM.bean !== undefined ? String(dM.bean).trim() : "";
+    var gVal = dM.ground !== undefined ? String(dM.ground).trim() : "";
+    var tVal = dM.tds !== undefined ? String(dM.tds).trim() : "";
+
+    var b = undefined, g = undefined, t = undefined;
+
+    if (bVal !== "") {
+      b = parseDecimalInput(bVal);
+      if (b === null || b < 20 || b > 130) {
+        toast(errorText(S.lang, "BAD_MEASURE"));
+        return;
+      }
+    }
+
+    if (gVal !== "") {
+      g = parseDecimalInput(gVal);
+      if (g === null || g < 20 || g > 130) {
+        toast(errorText(S.lang, "BAD_MEASURE"));
+        return;
+      }
+    }
+
+    if (tVal !== "") {
+      t = parseDecimalInput(tVal);
+      if (t === null || t < 0.5 || t > 3.0) {
+        toast(errorText(S.lang, "BAD_MEASURE"));
+        return;
+      }
+    }
+
+    if (b === undefined && g === undefined && t === undefined) {
+      toast(T("noMeasureToSave"));
+      return;
+    }
+
+    var effB = b !== undefined ? b : curM.bean;
+    var effG = g !== undefined ? g : curM.ground;
+    if (groundBelowBean({ bean: effB, ground: effG })) {
+      if (!window.confirm(T("confirmGroundBelowBean"))) return;
+    }
+
+    var staffId = S.identity ? S.identity.staff_id : "";
+    if (!staffId && S.sess && S.sess.staff && S.sess.staff.length) {
+      staffId = S.sess.staff[0].id;
+    }
+
+    var mPayload = { sample_id: curId, staff_id: staffId };
+    if (b !== undefined) mPayload.bean = b;
+    if (g !== undefined) mPayload.ground = g;
+    if (t !== undefined) mPayload.tds = t;
+
+    enqueueMeasure({ session_id: S.sid, token: S.token, measure: mPayload });
+
+    if (!curSample.measure) curSample.measure = {};
+    if (b !== undefined) curSample.measure.bean = b;
+    if (g !== undefined) curSample.measure.ground = g;
+    if (t !== undefined) curSample.measure.tds = t;
+    storeSet("cupping:sess:" + S.sid, S.sess);
+
+    if (S.measureDrafts) delete S.measureDrafts[curId];
+
+    // Sau Lưu tự nhảy sang mẫu kế chưa đủ số
+    var order = S.table.order;
+    var curIdx = order.indexOf(curId);
+    var nextId = null;
+    for (var step = 1; step < order.length; step++) {
+      var checkId = order[(curIdx + step) % order.length];
+      var checkSample = (S.sess.samples || []).filter(function (x) { return x.sample_id === checkId; })[0];
+      if (checkSample && measureChipState(checkSample.measure) !== "full") {
+        nextId = checkId;
+        break;
+      }
+    }
+    if (nextId) {
+      S.table = selectSample(S.table, nextId);
+    }
+
+    persist();
+    render();
+    var code = sampleCode(curId);
+    toast(T("measureSavedToast").replace("{code}", code));
+    syncMeasure();
+  }
+
+  function handleMarkCopied(sampleId) {
+    if (!sampleId) return;
+    var staffId = S.identity ? S.identity.staff_id : "";
+    if (!staffId && S.sess && S.sess.staff && S.sess.staff.length) {
+      staffId = S.sess.staff[0].id;
+    }
+    if (!staffId) {
+      toast(T("needStaff"));
+      return;
+    }
+    apiPost("markCopied", S.sid, S.token, { sample_id: sampleId, staff_id: staffId }).then(function (r) {
+      if (r && r.ok) {
+        if (S.sess && S.sess.samples) {
+          var s = S.sess.samples.filter(function (x) { return x.sample_id === sampleId; })[0];
+          if (s) {
+            if (!s.copy) s.copy = {};
+            s.copy.copied = r.copied;
+            storeSet("cupping:sess:" + S.sid, S.sess);
+          }
+        }
+        toast(T("markCopiedSuccess"));
+        render();
+      } else {
+        toast(errorText(S.lang, r && r.error ? r.error : "UNKNOWN"));
+      }
+    });
   }
 
   function viewEntry() {
@@ -475,11 +649,15 @@
     return '<main class="screen entry">' + h + '</main>';
   }
 
+  function mqueueCount(sessionId) {
+    return storeGet(MQUEUE_KEY, []).filter(function (q) { return q.session_id === sessionId; }).length;
+  }
+
   function syncPill() {
     if (S.token === "solo") {
       return '<span class="sync">☕ ' + esc(T("soloLocal")) + '</span>';
     }
-    var n = queueCount(S.sid);
+    var n = queueCount(S.sid) + mqueueCount(S.sid);
     if (!n) return '<span class="sync">' + esc(T("synced")) + '</span>';
     if (S.offline) return '<span class="sync off">' + esc(T("offline")) + ' (' + n + ')</span>';
     return '<span class="sync busy">' + esc(T("saving")) + ' (' + n + ')</span>';
@@ -490,6 +668,112 @@
     if (!S.table.order.length) {
       return '<main class="screen"><div class="toprow">' + syncPill() + '<button type="button" class="nav-hub-btn" data-act="goHub">‹ ' + esc(T("goHub")) + '</button>' + langToggle() + '</div><p class="muted">' + esc(T("noSamples")) + '</p></main>';
     }
+
+    var canMeasure = S.token !== "solo" && !guest;
+    var isClosed = !!(S.sess && S.sess.session && S.sess.session.closed);
+    if (isClosed && canMeasure && S.tableMode !== "taste") S.tableMode = "measure";
+    var curMode = (canMeasure && S.tableMode === "measure") ? "measure" : "taste";
+
+    var allDone = S.table.order.length > 0 && S.table.order.every(function (id) {
+      return S.table.saved && S.table.saved[id];
+    });
+    var banner = allDone ? '<div class="all-done-banner" data-act="goSummary">🎉 ' + esc(T("allDoneBanner")) + '</div>' : '';
+    var closedBanner = isClosed ? '<div class="closed-banner">🔒 ' + esc(T("closedMeasureOnly")) + '</div>' : '';
+
+    var modeTabs = "";
+    if (canMeasure) {
+      modeTabs = '<div class="table-mode-tabs">' +
+        '<button type="button" class="mode-tab' + (curMode === "taste" ? " active" : "") + '" data-act="setTableMode" data-v="taste">☕ ' + esc(T("modeTaste")) + '</button>' +
+        '<button type="button" class="mode-tab' + (curMode === "measure" ? " active" : "") + '" data-act="setTableMode" data-v="measure">📏 ' + esc(T("modeMeasure")) + '</button>' +
+        '</div>';
+    }
+
+    var toprowHtml = '<div class="toprow">' + syncPill() +
+      '<button type="button" class="who" data-act="changeUser">' + esc(S.identity.name) + ' · ' + esc(T("changeUser")) + '</button>' +
+      '<button type="button" class="nav-hub-btn" data-act="goSummary" aria-label="' + esc(T("summary")) + '">📊 ' + esc(T("summary")) + '</button>' +
+      '<button type="button" class="nav-hub-btn" data-act="goHub" aria-label="' + esc(T("goHub")) + '">🏠 ' + esc(T("goHub")) + '</button>' +
+      langToggle() + '</div>';
+
+    if (curMode === "measure") {
+      var measureChips = S.table.order.map(function (id) {
+        var s = (S.sess.samples || []).filter(function (x) { return x.sample_id === id; })[0] || {};
+        var m = s.measure || {};
+        var chipSt = measureChipState(m);
+        var on = id === S.table.cur;
+        var title = sampleCode(id);
+        if (s.product_line) {
+          var datePart = s.roasted_label ? s.roasted_label.replace(/\/\d{4}$/, "") : "";
+          title = s.product_line + (datePart ? " · " + datePart : "");
+        }
+        var cnt = ["bean", "ground", "tds"].filter(function (k) { return typeof m[k] === "number" && isFinite(m[k]); }).length;
+        var sub = cnt === 3 ? "3/3 ✓" : (cnt > 0 ? cnt + "/3" : T("unmeasured"));
+        return '<button type="button" class="chip chip-measure chip-measure-' + chipSt + (on ? " on" : "") + '" data-act="sample" data-id="' + esc(id) + '" aria-pressed="' + on + '">' +
+          '<b>' + esc(title) + '</b><span>' + esc(sub) + '</span></button>';
+      }).join("");
+
+      var curSample = (S.sess.samples || []).filter(function (x) { return x.sample_id === S.table.cur; })[0] || {};
+      var curM = curSample.measure || {};
+      var curCnt = ["bean", "ground", "tds"].filter(function (k) { return typeof curM[k] === "number" && isFinite(curM[k]); }).length;
+      var progCls = curCnt === 3 ? " full" : (curCnt > 0 ? " partial" : "");
+      var progLabel = curCnt === 3 ? "3/3 " + T("measuredFull") + " ✓" : (curCnt > 0 ? curCnt + "/3 " + T("readingsOf") : T("unmeasured"));
+      var headlineTitle = curSample.product_line ? curSample.product_line : sampleCode(S.table.cur);
+      var subHeadline = curSample.roasted_label ?
+        '<p class="muted small" style="margin:2px 0 0;">' + esc(curSample.roasted_label) + ' · Mã: ' + esc(curSample.blind_code) + '</p>' :
+        '<p class="muted small" style="margin:2px 0 0;">' + esc(T("blind")) + ' · Mã ' + esc(sampleCode(S.table.cur)) + '</p>';
+
+      var dM = (S.measureDrafts && S.measureDrafts[S.table.cur]) || {};
+      var valBean = dM.bean !== undefined ? dM.bean : "";
+      var hasBean = typeof curM.bean === "number" && isFinite(curM.bean);
+      var badgeBean = hasBean ? '<span class="measure-badge-saved">' + esc(T("existingVal").replace("{val}", fmt1(curM.bean))) + '</span>' : "";
+      var phBean = hasBean ? fmt1(curM.bean) : T("beanColorPh");
+
+      var valGround = dM.ground !== undefined ? dM.ground : "";
+      var hasGround = typeof curM.ground === "number" && isFinite(curM.ground);
+      var badgeGround = hasGround ? '<span class="measure-badge-saved">' + esc(T("existingVal").replace("{val}", fmt1(curM.ground))) + '</span>' : "";
+      var phGround = hasGround ? fmt1(curM.ground) : T("groundColorPh");
+
+      var valTds = dM.tds !== undefined ? dM.tds : "";
+      var hasTds = typeof curM.tds === "number" && isFinite(curM.tds);
+      var badgeTds = hasTds ? '<span class="measure-badge-saved">' + esc(T("existingVal").replace("{val}", fmt1(curM.tds) + "%")) + '</span>' : "";
+      var phTds = hasTds ? fmt1(curM.tds) : T("tdsPh");
+
+      var effB = parseDecimalInput(valBean); if (effB === null && hasBean) effB = curM.bean;
+      var effG = parseDecimalInput(valGround); if (effG === null && hasGround) effG = curM.ground;
+      var hasDelta = effB !== null && effG !== null;
+      var dVal = hasDelta ? Math.round((effG - effB) * 10) / 10 : 0;
+      var deltaHtml = '<div class="delta-preview" style="display:' + (hasDelta ? 'flex' : 'none') + ';"><span>' + esc(T("deltaColor")) + '</span><span class="delta-val">' + (dVal > 0 ? "+" : "") + esc(fmt1(dVal)) + '</span></div>';
+
+      var measureFormHtml = '<div class="measure-headline">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">' +
+        '<span class="code">' + esc(headlineTitle) + '</span>' +
+        '<span class="measure-progress-tag' + progCls + '">' + esc(progLabel) + '</span>' +
+        '</div>' + subHeadline + '</div>' +
+        '<div class="measure-grid">' +
+        '<div class="measure-card">' +
+        '<div class="measure-card-header"><span class="measure-card-title">🌰 ' + esc(T("beanColor")) + '</span>' + badgeBean + '</div>' +
+        '<div class="measure-input-wrap">' +
+        '<input type="text" inputmode="decimal" class="measure-input" id="measure_bean" value="' + esc(valBean) + '" placeholder="' + esc(phBean) + '">' +
+        '<span class="measure-unit">Agtron</span>' +
+        '</div></div>' +
+        '<div class="measure-card">' +
+        '<div class="measure-card-header"><span class="measure-card-title">☕ ' + esc(T("groundColor")) + '</span>' + badgeGround + '</div>' +
+        '<div class="measure-input-wrap">' +
+        '<input type="text" inputmode="decimal" class="measure-input" id="measure_ground" value="' + esc(valGround) + '" placeholder="' + esc(phGround) + '">' +
+        '<span class="measure-unit">Agtron</span>' +
+        '</div></div>' +
+        '<div class="measure-card">' +
+        '<div class="measure-card-header"><span class="measure-card-title">💧 ' + esc(T("tdsPercent")) + '</span>' + badgeTds + '</div>' +
+        '<div class="measure-input-wrap">' +
+        '<input type="text" inputmode="decimal" class="measure-input" id="measure_tds" value="' + esc(valTds) + '" placeholder="' + esc(phTds) + '">' +
+        '<span class="measure-unit">%</span>' +
+        '</div></div>' +
+        deltaHtml +
+        '<button type="button" class="cta-measure" data-act="saveMeasure">💾 ' + esc(T("saveReadings")) + '</button>' +
+        '</div>';
+
+      return '<main class="screen">' + toprowHtml + banner + closedBanner + modeTabs + '<div class="chips">' + measureChips + '</div>' + measureFormHtml + '</main>';
+    }
+
     var chips = S.table.order.map(function (id) {
       var st = sampleStatus(S.table, id), on = id === S.table.cur;
       var curDraft = S.table.drafts[id] || {};
@@ -520,26 +804,25 @@
       '<button type="button" class="smile-btn' + (vibe === "dislike" ? " active" : "") + '" data-act="vibe" data-v="dislike" aria-label="' + esc(T("vibeDislike")) + '">😕 ' + esc(T("vibeDislike")) + '</button>' +
       '</div></div>';
 
-    var allDone = S.table.order.length > 0 && S.table.order.every(function (id) {
-      return S.table.saved && S.table.saved[id];
-    });
-    var banner = allDone ? '<div class="all-done-banner" data-act="goSummary">🎉 ' + esc(T("allDoneBanner")) + '</div>' : '';
+    var radarCardHtml = isClosed ?
+      '<div class="card radar-card"><h2>' + esc(T("cvaProfile")) + ' · ' + scored + '/7</h2>' +
+      '<div class="radar-wrap">' + renderRadarSvg(d.scores, S.theme === "light") + '</div>' +
+      '<div class="mini">' + mini + '</div></div>' :
+      '<button type="button" class="card radar-card" data-act="open" data-v="score"><h2>' + esc(T("cvaProfile")) + ' · ' + scored + '/7<em>' + esc(T("edit")) + ' ›</em></h2>' +
+      '<div class="radar-wrap">' + renderRadarSvg(d.scores, S.theme === "light") + '</div>' +
+      '<div class="mini">' + mini + '</div></button>';
 
-    var h = '<div class="toprow">' + syncPill() +
-      '<button type="button" class="who" data-act="changeUser">' + esc(S.identity.name) + ' · ' + esc(T("changeUser")) + '</button>' +
-      '<button type="button" class="nav-hub-btn" data-act="goSummary" aria-label="' + esc(T("summary")) + '">📊 ' + esc(T("summary")) + '</button>' +
-      '<button type="button" class="nav-hub-btn" data-act="goHub" aria-label="' + esc(T("goHub")) + '">🏠 ' + esc(T("goHub")) + '</button>' +
-      langToggle() + '</div>' +
+    var h = toprowHtml +
       banner +
+      closedBanner +
+      modeTabs +
       '<div class="chips">' + chips + '</div>' +
       '<div class="headline"><div><p class="kicker">' + esc(T("blind")) + ' · ' + esc(guest ? T("guest") : T("staff")) + '</p>' +
       '<span class="code">' + esc(sampleCode(S.table.cur)) + '</span><span class="liveavg">' + esc(T("avg")) + ' ' + esc(avgText) + '</span></div>' +
       '<div class="icons"><button type="button" class="icon" data-act="undo" aria-label="' + esc(T("undo")) + '"' + (S.table.undo.length ? "" : " disabled") + '>' + ICON.undo + '</button>' +
       '<button type="button" class="icon" data-act="redo" aria-label="' + esc(T("redo")) + '"' + (S.table.redo.length ? "" : " disabled") + '>' + ICON.redo + '</button></div></div>' +
       smileBar +
-      '<button type="button" class="card radar-card" data-act="open" data-v="score"><h2>' + esc(T("cvaProfile")) + ' · ' + scored + '/7<em>' + esc(T("edit")) + ' ›</em></h2>' +
-      '<div class="radar-wrap">' + renderRadarSvg(d.scores, S.theme === "light") + '</div>' +
-      '<div class="mini">' + mini + '</div></button>' +
+      radarCardHtml +
       '<div class="card"><h2>' + esc(T("flavors")) + ' · ' + descCodes.length + '</h2>' +
       (descCodes.length ? '<div class="tags">' + tags + '</div>' : '<span class="muted">' + esc(T("emptyFlavor")) + '</span>') + '</div>';
     if (!guest) {
@@ -551,9 +834,17 @@
     var tab = function (act, v, icon, text, extra) {
       return '<button type="button" class="tab' + (extra || "") + '" data-act="' + act + '"' + (v ? ' data-v="' + v + '"' : "") + '>' + icon + '<span>' + esc(text) + '</span></button>';
     };
-    h += '<nav class="bar"><div class="half">' + tab("open", "score", ICON.score, T("score")) + tab("open", "card", ICON.card, T("card")) + '</div>' +
+    var finishTab = isClosed ?
+      '<button type="button" class="tab" disabled style="opacity:0.6;"><span style="font-size:11px;">🔒 ' + esc(T("closedMeasureOnly")) + '</span></button>' :
+      tab("finish", "", ICON.done, T("done"), " go");
+
+    var bottomBar = isClosed ?
+      '<nav class="bar"><div style="width:100%;text-align:center;color:var(--muted);font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 12px;">🔒 ' + esc(T("closedMeasureOnly")) + '</div></nav>' :
+      '<nav class="bar"><div class="half">' + tab("open", "score", ICON.score, T("score")) + tab("open", "card", ICON.card, T("card")) + '</div>' +
       '<div class="mid"><button type="button" class="fab" data-act="open" data-v="wheel" aria-label="' + esc(T("addFlavor")) + '">' + ICON.plus + '</button></div>' +
-      '<div class="half">' + (guest ? "" : tab("open", "defects", ICON.defect, T("defects"))) + tab("finish", "", ICON.done, T("done"), " go") + '</div></nav>';
+      '<div class="half">' + (guest ? "" : tab("open", "defects", ICON.defect, T("defects"))) + finishTab + '</div></nav>';
+
+    h += bottomBar;
 
     if (S.sheet === "wheel") h += viewWheel();
     else if (S.sheet) h += '<div class="scrim" data-act="close"></div><section class="sheet" role="dialog" aria-modal="true">' + viewSheet() + '</section>';
@@ -743,6 +1034,43 @@
         esc(label(d.code)) + ' <b>' + d.count + ' ' + esc(T("votes")) + '</b></span>';
     }).join("") : '<span class="muted small">' + esc(T("emptyFlavor")) + '</span>';
 
+    var copySamples = (S.sess && S.sess.samples ? S.sess.samples : []).filter(function (s) {
+      return s.copy && s.copy.text;
+    });
+
+    var intensoCardHtml = "";
+    if (copySamples.length > 0) {
+      var rowsHtml = copySamples.map(function (s) {
+        var title = s.product_line ? s.product_line : sampleCode(s.sample_id);
+        var dateBadge = s.copy.date ? '<span class="intenso-date-badge">📅 ' + esc(s.copy.date) + '</span>' : '';
+        var copyText = s.copy.text || "";
+        var copiedHtml = "";
+        if (s.copy.copied) {
+          copiedHtml = '<span class="intenso-copied-badge">✓ ' + esc(s.copy.copied) + '</span>';
+        } else {
+          copiedHtml = '<button type="button" class="btn-intenso-mark" data-act="markCopied" data-id="' + esc(s.sample_id) + '">✓ ' + esc(T("copiedBtn")) + '</button>';
+        }
+        return '<div class="intenso-item">' +
+          '<div class="intenso-top">' +
+          '<div class="intenso-title-group"><span class="intenso-name">' + esc(title) + '</span>' + dateBadge + '</div>' +
+          '</div>' +
+          '<div class="intenso-bottom">' +
+          '<code class="intenso-val-code">' + esc(copyText) + '</code>' +
+          '<div class="intenso-actions">' +
+          '<button type="button" class="btn-intenso-copy" data-act="copyIntenso" data-text="' + esc(copyText) + '">📋 ' + esc(T("copyBtn")) + '</button>' +
+          copiedHtml +
+          '</div></div></div>';
+      }).join("");
+
+      intensoCardHtml = '<div class="card intenso-card">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;">' +
+        '<h2>📋 ' + esc(T("intensoBlockTitle")) + '</h2>' +
+        '</div>' +
+        '<p class="intenso-notice">⚠️ ' + esc(T("intensoNotice")) + '</p>' +
+        '<div class="intenso-list">' + rowsHtml + '</div>' +
+        '</div>';
+    }
+
     var h = '<div class="toprow">' +
       '<button type="button" class="nav-hub-btn" data-act="backToTable">‹ ' + esc(T("backToTable")) + '</button>' +
       langToggle() + '</div>' +
@@ -775,6 +1103,7 @@
       '<h2 style="margin:0 0 8px;">' + esc(T("consensusFlavors")) + '</h2>' +
       '<div class="consensus-tags">' + topDescHtml + '</div>' +
       '</div>' +
+      intensoCardHtml +
       '<button type="button" class="cta-copy" data-act="copyReport">📋 ' + esc(T("copyReport")) + '</button>';
 
     return '<main class="screen summary-screen">' + h + '</main>';
@@ -846,6 +1175,14 @@
     if (e.target.id === "guestName") S.guestNameDraft = e.target.value;
     if (e.target.id === "note") S.noteDraft = e.target.value;
     if (e.target.id === "joinInput") S.joinDraft = e.target.value;
+    if (e.target.id === "measure_bean" || e.target.id === "measure_ground" || e.target.id === "measure_tds") {
+      if (!S.measureDrafts) S.measureDrafts = {};
+      if (!S.measureDrafts[S.table.cur]) S.measureDrafts[S.table.cur] = {};
+      if (e.target.id === "measure_bean") S.measureDrafts[S.table.cur].bean = e.target.value;
+      if (e.target.id === "measure_ground") S.measureDrafts[S.table.cur].ground = e.target.value;
+      if (e.target.id === "measure_tds") S.measureDrafts[S.table.cur].tds = e.target.value;
+      updateDeltaPreview();
+    }
   });
   // Ghi chú: 1 lần Undo cho cả đoạn. KHÔNG vẽ lại ở đây — "change" bắn lúc ô mất focus, tức
   // ngay trước cú chạm vào nút ×; vẽ lại lúc đó sẽ thay nút dưới ngón tay và nuốt mất cú chạm.
@@ -867,6 +1204,16 @@
         storeSet("cupping:theme", S.theme);
         document.body.classList.toggle("light-mode", S.theme === "light");
         render();
+        break;
+      case "setTableMode": S.tableMode = v; render(); break;
+      case "saveMeasure": handleSaveMeasure(); break;
+      case "copyIntenso":
+        var copyTxt = el.getAttribute("data-text");
+        copyTextToClipboard(copyTxt, T("copiedIntensoToast").replace("{text}", copyTxt));
+        break;
+      case "markCopied":
+        var mSampleId = el.getAttribute("data-id");
+        handleMarkCopied(mSampleId);
         break;
       case "goHub": S.screen = "hub"; render(); break;
       case "goSummary": S.screen = "summary"; render(); break;
@@ -898,6 +1245,11 @@
       case "undo": S.table = undo(S.table); persist(); render(); break;
       case "redo": S.table = redo(S.table); persist(); render(); break;
       case "open":
+        var isClosed = !!(S.sess && S.sess.session && S.sess.session.closed);
+        if (isClosed && (v === "score" || v === "wheel" || v === "defects")) {
+          toast(T("closedMeasureOnly"));
+          return;
+        }
         S.sheet = v; S.zoom = []; S.pending = null;
         if (v === "score") { var m = missingScores(draft()); S.q = m.length ? SCORE_FIELDS.indexOf(m[0]) : 0; }
         if (v === "card") S.noteDraft = draft().note;
