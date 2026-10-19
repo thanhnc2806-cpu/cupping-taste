@@ -1236,9 +1236,23 @@
 
     h += intensoCardHtml +
       soloSaveCardHtml +
-      '<button type="button" class="cta-copy" data-act="copyReport">📋 ' + esc(T("copyReport")) + '</button>';
+      '<button type="button" class="cta-copy" data-act="copyReport">📋 ' + esc(T("copyReport")) + '</button>' +
+      (S.token === "solo" ? '<button type="button" class="cta-discard" data-act="discardSolo">🗑 ' + esc(T("discardSolo")) + '</button>' : '');
 
     return '<main class="screen summary-screen">' + h + '</main>' + pinModalHtml;
+  }
+
+  // Bỏ phiên tự do: xoá mọi dấu vết cục bộ; không gửi gì lên máy chủ.
+  function discardSolo() {
+    if (!window.confirm(T("discardSoloConfirm"))) return;
+    var sid = S.sid;
+    ["sess", "table", "labels", "id"].forEach(function (k) { storeDel("cupping:" + k + ":" + sid); });
+    storeSet(VISITS_KEY, storeGet(VISITS_KEY, []).filter(function (v) { return v.s !== sid; }));
+    var last = storeGet("cupping:last", null);
+    if (last && last.s === sid) storeDel("cupping:last");
+    Object.assign(S, sessionReset());
+    S.sid = null; S.token = null; S.screen = "hub";
+    render();
   }
 
   function viewError() {
@@ -1458,6 +1472,7 @@
         var pVal = pinEl ? pinEl.value : S.pinDraft;
         submitSoloSave(pVal);
         break;
+      case "discardSolo": discardSolo(); break;
       case "goHub": S.screen = "hub"; render(); break;
       case "goSummary": S.screen = "summary"; render(); break;
       case "backToTable": S.screen = "table"; render(); break;

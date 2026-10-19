@@ -68,7 +68,8 @@ var STRINGS = {
     needPin: "Vui lòng nhập mã PIN.",
     pinCancel: "Huỷ",
     pinSubmit: "Xác nhận & Lưu",
-    guestCannotSaveSolo: "Chỉ tài khoản Nhân viên mới có thể lưu phiên lên hệ thống."
+    guestCannotSaveSolo: "Chỉ tài khoản Nhân viên mới có thể lưu phiên lên hệ thống.",
+    discardSolo: "Bỏ phiên (không lưu)", discardSoloConfirm: "Bỏ phiên này? Toàn bộ điểm đã chấm sẽ mất, không khôi phục được."
   },
   en: {
     loading: "Loading session…", synced: "All saved", saving: "Saving", offline: "Waiting to sync — offline",
@@ -138,7 +139,8 @@ var STRINGS = {
     needPin: "Please enter PIN.",
     pinCancel: "Cancel",
     pinSubmit: "Confirm & Save",
-    guestCannotSaveSolo: "Only staff members can save flights to the system."
+    guestCannotSaveSolo: "Only staff members can save flights to the system.",
+    discardSolo: "Discard flight (don't save)", discardSoloConfirm: "Discard this flight? All scores will be lost and cannot be recovered."
   }
 };
 

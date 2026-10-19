@@ -23,9 +23,9 @@ button { cursor: pointer; }
 button:disabled { cursor: default; opacity: 0.45; }
 button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .muted { color: var(--muted); } .small { font-size: 12px; }
-.center { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; text-align: center; line-height: 1.5; }
+.center { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: calc(24px + env(safe-area-inset-top)) 24px 24px; text-align: center; line-height: 1.5; }
 
-.screen { max-width: 480px; margin: 0 auto; min-height: 100vh; padding: 16px 16px 120px; display: flex; flex-direction: column; gap: 14px; }
+.screen { max-width: 480px; margin: 0 auto; min-height: 100vh; padding: calc(16px + env(safe-area-inset-top)) 16px 120px; display: flex; flex-direction: column; gap: 14px; }
 .entry { padding-bottom: 24px; }
 .kicker { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
 .title { margin: 0; font-family: Fraunces, Georgia, serif; font-size: 32px; font-weight: 700; line-height: 1.1; }
@@ -95,7 +95,7 @@ body.light-mode .mini b { background: #EAE4DC; }
 .tag { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--ink); }
 .tag.def { background: #3A2326; color: var(--bad); }
 
-.bar { position: fixed; left: 0; right: 0; bottom: 0; height: 72px; background: var(--bar); border-top: 1px solid #2C313A; display: flex; padding-bottom: env(safe-area-inset-bottom); }
+.bar { position: fixed; left: 0; right: 0; bottom: 0; height: calc(64px + env(safe-area-inset-bottom) * 0.35); background: var(--bar); border-top: 1px solid #2C313A; display: flex; padding-bottom: calc(env(safe-area-inset-bottom) * 0.35); }
 body.light-mode .bar { border-top-color: #D8D0C5; }
 .bar .half { flex: 1; display: flex; }
 .bar .tab { flex: 1; border: none; background: transparent; color: var(--text); font-size: 12px; font-weight: 600; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
@@ -340,3 +340,5 @@ body.light-mode .cta-solo-save { background: #3B82F6; color: #FFFFFF; }
 
 
 
+
+.cta-discard { min-height: 48px; border-radius: 14px; border: 1px solid var(--line2); background: transparent; color: var(--bad); font-size: 15px; font-weight: 600; }
