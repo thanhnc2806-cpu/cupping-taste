@@ -11,7 +11,7 @@
     theme: storeGet("cupping:theme", "dark") === "light" ? "light" : "dark",
     sid: null, token: null, sess: null, identity: null, table: null,
     screen: "loading", errorCode: "", errorRetryable: false,
-    role: "staff", pickStaff: null, guestNameDraft: "",
+    role: "staff", pickStaff: null, guestNameDraft: "", idPinDraft: "", idPinBusy: false,
     sheet: "", zoom: [], pending: null, q: 0, noteDraft: "",
     toastTimer: null, offline: false, lastWheel: null,
     soloCount: 5, joinDraft: "",
@@ -656,6 +656,11 @@
     });
   }
 
+  function idPinField(label) {
+    return '<label class="label">' + esc(label) +
+      '<input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" id="idPinInput" autocomplete="off" placeholder="••••••" value="' + esc(S.idPinDraft) + '"></label>';
+  }
+
   function viewEntry() {
     var staff = S.sess.staff || [];
     var h = '<div class="toprow"><button type="button" class="nav-hub-btn" data-act="goHub">‹ ' + esc(T("goHub")) + '</button>' + langToggle() + '</div>' +
@@ -671,12 +676,14 @@
         var on = S.pickStaff === p.id;
         return '<button type="button" class="pick' + (on ? " on" : "") + '" data-act="pickStaff" data-id="' + esc(p.id) + '" aria-pressed="' + on + '">' + esc(p.name) + '</button>';
       }).join("") : '<p class="muted">' + esc(T("noStaff")) + '</p>';
+      var picked = staff.filter(function (p) { return p.id === S.pickStaff; })[0];
+      if (picked) h += idPinField(T("pinOf").replace("{name}", picked.name));
     } else {
       h += '<label class="label">' + esc(T("yourName")) +
         '<input id="guestName" type="text" maxlength="40" autocomplete="off" value="' + esc(S.guestNameDraft) + '" placeholder="' + esc(T("namePh")) + '"></label>' +
-        '<p class="muted small">' + esc(T("guestHint")) + '</p>';
+        '<p class="muted small">' + esc(T("guestHint")) + '</p>' + idPinField(T("guestCode"));
     }
-    h += '<button type="button" class="cta" data-act="enter">' + esc(T("enter")) + '</button>';
+    h += '<button type="button" class="cta" data-act="enter"' + (S.idPinBusy ? ' disabled' : '') + '>' + esc(S.idPinBusy ? T("verifying") : T("enter")) + '</button>';
     return '<main class="screen entry">' + h + '</main>';
   }
 
@@ -1293,28 +1300,52 @@
     if (S.token !== "solo") sync();
   }
 
-  function enter() {
-    if (S.role === "staff") {
-      var p = (S.sess.staff || []).filter(function (x) { return x.id === S.pickStaff; })[0];
-      if (!p) { toast(T("needStaff")); return; }
-      S.identity = { type: "staff", staff_id: p.id, name: p.name };
-    } else {
-      var name = (S.guestNameDraft || "").trim();
-      if (!name) { toast(T("needName")); return; }
-      S.identity = { type: "guest", guest_id: uuid(), name: name.slice(0, 40) }; // mã MỚI cho mỗi khách (spec §5.1)
-    }
+  function finishEnter() {
     storeSet("cupping:id:" + S.sid, S.identity);
     if (S.token === "solo") storeSet("cupping:id:solo", S.identity);
+    S.idPinDraft = "";
     S.screen = "table";
     S.table = selectSample(S.table, nextUnsaved(S.table));
     render();
+  }
+
+  // Chọn tên nào cũng phải có PIN của người đó (nhân viên) hoặc mã khách do Host cấp; máy chủ xác nhận.
+  function enter() {
+    if (S.idPinBusy) return;
+    var pin = String(S.idPinDraft || "").trim();
+    var req;
+    if (S.role === "staff") {
+      var p = (S.sess.staff || []).filter(function (x) { return x.id === S.pickStaff; })[0];
+      if (!p) { toast(T("needStaff")); return; }
+      if (!pin) { toast(T("needPin")); return; }
+      req = apiVerifyStaff(p.id, pin).then(function (r) {
+        if (r.ok) { S.identity = { type: "staff", staff_id: p.id, name: p.name }; storeSet("cupping:spin", pin); }
+        return r;
+      });
+    } else {
+      var name = (S.guestNameDraft || "").trim();
+      if (!name) { toast(T("needName")); return; }
+      if (!pin) { toast(T("needPin")); return; }
+      req = apiVerifyGuest(pin).then(function (r) {
+        if (r.ok) S.identity = { type: "guest", guest_id: uuid(), name: name.slice(0, 40) }; // mã MỚI cho mỗi khách (spec §5.1)
+        return r;
+      });
+    }
+    S.idPinBusy = true; render();
+    req.then(function (r) {
+      S.idPinBusy = false;
+      if (r.ok) { finishEnter(); return; }
+      S.idPinDraft = "";
+      toast(errorText(S.lang, r.error));
+      render();
+    });
   }
 
   function changeUser() {
     if (!window.confirm(T("changeConfirm"))) return;
     storeDel("cupping:id:" + S.sid);
     storeDel("cupping:table:" + S.sid); // lượt đã bấm Xong vẫn nằm trong cupping:queue và vẫn được gửi
-    S.identity = null; S.table = null; S.pickStaff = null; S.guestNameDraft = "";
+    S.identity = null; S.table = null; S.pickStaff = null; S.guestNameDraft = ""; S.idPinDraft = "";
     closeOverlay(); startTable(); render();
   }
 
@@ -1324,7 +1355,7 @@
       toast(T("guestCannotSaveSolo"));
       return;
     }
-    var rememberedPin = storeGet("cupping:pin", "");
+    var rememberedPin = storeGet("cupping:spin", "");
     if (rememberedPin) {
       submitSoloSave(rememberedPin);
     } else {
@@ -1350,10 +1381,10 @@
     S.soloSaving = true;
     render();
 
-    apiSaveSolo(payload, cleanPin).then(function (r) {
+    apiSaveSolo(payload, cleanPin, S.identity.staff_id).then(function (r) {
       S.soloSaving = false;
       if (r && r.ok) {
-        storeSet("cupping:pin", cleanPin);
+        storeSet("cupping:spin", cleanPin);
         S.pinModalOpen = false;
         S.pinModalError = "";
         S.pinDraft = "";
@@ -1366,7 +1397,7 @@
       } else {
         var err = r && r.error ? r.error : "UNKNOWN";
         if (err === "BAD_PIN") {
-          storeDel("cupping:pin");
+          storeDel("cupping:spin");
           S.pinDraft = "";
           S.pinModalError = errorText(S.lang, "BAD_PIN");
           S.pinModalOpen = true;
@@ -1393,6 +1424,7 @@
     if (e.target.id === "note") S.noteDraft = e.target.value;
     if (e.target.id === "joinInput") S.joinDraft = e.target.value;
     if (e.target.id === "soloPinInput") S.pinDraft = e.target.value;
+    if (e.target.id === "idPinInput") S.idPinDraft = e.target.value;
     if (e.target.classList && e.target.classList.contains("solo-sample-input")) {
       var sId = e.target.getAttribute("data-id");
       if (!S.soloLabels) S.soloLabels = storeGet("cupping:labels:" + S.sid, {}) || {};
@@ -1410,6 +1442,7 @@
   });
 
   root.addEventListener("keydown", function (e) {
+    if (e.target.id === "idPinInput" && e.key === "Enter") { e.preventDefault(); enter(); }
     if (e.target.id === "soloPinInput" && e.key === "Enter") {
       e.preventDefault();
       submitSoloSave(e.target.value);
@@ -1495,8 +1528,8 @@
         break;
       case "vibe": edit(setVibe(draft().vibe === v ? "" : v)); break;
       case "retryBoot": fetchSession(); break;
-      case "role": S.role = v; render(); break;
-      case "pickStaff": S.pickStaff = el.getAttribute("data-id"); render(); break;
+      case "role": S.role = v; S.idPinDraft = ""; render(); break;
+      case "pickStaff": S.pickStaff = el.getAttribute("data-id"); S.idPinDraft = ""; render(); break;
       case "enter": enter(); break;
       case "changeUser": changeUser(); break;
       case "sample": S.table = selectSample(S.table, el.getAttribute("data-id")); closeOverlay(); render(); break;

@@ -63,8 +63,9 @@ var STRINGS = {
     resaveToRoastery: "Lưu lại (cập nhật)",
     savedAt: "Đã lưu lúc {time}",
     soloSavedSuccess: "Đã lưu phiên Cupping tự do thành công",
-    pinModalTitle: "Mã PIN phòng rang",
-    pinModalDesc: "Nhập mã PIN phòng rang (6–8 chữ số) để xác thực và lưu phiên.",
+    pinModalTitle: "PIN của bạn",
+    pinModalDesc: "Nhập PIN riêng của bạn (6–8 chữ số) để xác thực và lưu phiên.",
+    pinOf: "PIN của {name}", guestCode: "Mã khách (do Thanh cấp)", verifying: "Đang xác nhận…",
     needPin: "Vui lòng nhập mã PIN.",
     pinCancel: "Huỷ",
     pinSubmit: "Xác nhận & Lưu",
@@ -134,8 +135,9 @@ var STRINGS = {
     resaveToRoastery: "Update saved flight",
     savedAt: "Saved at {time}",
     soloSavedSuccess: "Free cupping flight saved successfully",
-    pinModalTitle: "Roastery PIN",
-    pinModalDesc: "Enter the roastery PIN (6–8 digits) to authenticate and save.",
+    pinModalTitle: "Your PIN",
+    pinModalDesc: "Enter your own PIN (6–8 digits) to authenticate and save.",
+    pinOf: "{name}'s PIN", guestCode: "Guest code (from Thanh)", verifying: "Verifying…",
     needPin: "Please enter PIN.",
     pinCancel: "Cancel",
     pinSubmit: "Confirm & Save",
@@ -180,8 +182,9 @@ var ERRORS = {
     BAD_MEASURE: "Số đo ngoài dải — màu 20–130, TDS 0,5–3,0. Kiểm lại dấu phẩy.",
     MEASURE_WINDOW_CLOSED: "Đã quá 24 giờ sau khi đóng phiên — không nhập số đo được nữa.",
     BAD_SOLO: "Dữ liệu phiên tự do không hợp lệ — tối đa 10 mẫu, tên mẫu ≤ 60 ký tự.",
-    BAD_PIN: "Sai PIN phòng rang.", PIN_LOCKED: "Sai PIN quá 5 lần — thử lại sau 15 phút.",
-    PIN_NOT_SET: "Phòng rang chưa đặt PIN — nhờ Host đặt trước."
+    BAD_PIN: "Sai PIN.", PIN_LOCKED: "Sai PIN quá 5 lần — thử lại sau 15 phút.",
+    PIN_NOT_SET: "Chưa có PIN — nhờ Thanh cấp PIN trước.",
+    GUEST_PIN_EXPIRED: "Mã khách đã hết hạn hoặc chưa cấp — nhờ Thanh cấp mã mới."
   },
   en: {
     BAD_REQUEST: "Invalid request — reload the page.", BODY_TOO_LARGE: "Too much data — trim descriptors or notes.",
@@ -199,8 +202,9 @@ var ERRORS = {
     BAD_MEASURE: "Reading out of range — color 20–130, TDS 0.5–3.0. Check the decimal mark.",
     MEASURE_WINDOW_CLOSED: "More than 24 hours since the session closed — readings can no longer be entered.",
     BAD_SOLO: "Invalid free-cupping data — max 10 samples, sample names ≤ 60 characters.",
-    BAD_PIN: "Wrong roastery PIN.", PIN_LOCKED: "Too many wrong PINs — try again in 15 minutes.",
-    PIN_NOT_SET: "Roastery PIN not set yet — ask the host to set it."
+    BAD_PIN: "Wrong PIN.", PIN_LOCKED: "Too many wrong PINs — try again in 15 minutes.",
+    PIN_NOT_SET: "No PIN yet — ask Thanh to issue one.",
+    GUEST_PIN_EXPIRED: "Guest code expired or not issued — ask Thanh for a new one."
   }
 };
 

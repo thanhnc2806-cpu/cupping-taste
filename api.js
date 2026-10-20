@@ -85,5 +85,8 @@ function flushMeasureQueue(onEvent) {
   })();
 }
 
-// PIN phòng rang đi ở ô token — phiên tự do không có token phiên.
-function apiSaveSolo(payload, pin) { return apiPost("saveSolo", payload.session_id, String(pin), { solo: payload.solo }); }
+// PIN của chính nhân viên đi ở ô token; staff_id cho máy chủ biết đang kiểm PIN của ai.
+function apiSaveSolo(payload, pin, staffId) { return apiPost("saveSolo", payload.session_id, String(pin), { solo: payload.solo, staff_id: staffId }); }
+// Xác nhận danh tính: session_id mang mã NV (khách: "guest"), token mang PIN.
+function apiVerifyStaff(staffId, pin) { return apiPost("verifyStaff", staffId, String(pin)); }
+function apiVerifyGuest(pin) { return apiPost("verifyGuest", "guest", String(pin)); }
