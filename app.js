@@ -669,6 +669,8 @@
     });
   }
 
+  var SIGNATURE = '<p class="signature">@thorangditour</p>';
+
   function idPinField(label) {
     return '<label class="label">' + esc(label) +
       '<input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" id="idPinInput" autocomplete="off" placeholder="••••••" value="' + esc(S.idPinDraft) + '"></label>';
@@ -697,7 +699,7 @@
         '<p class="muted small">' + esc(T("guestHint")) + '</p>' + idPinField(T("guestCode"));
     }
     h += '<button type="button" class="cta" data-act="enter"' + (S.idPinBusy ? ' disabled' : '') + '>' + esc(S.idPinBusy ? T("verifying") : T("enter")) + '</button>';
-    return '<main class="screen entry">' + h + '</main>';
+    return '<main class="screen entry">' + h + SIGNATURE + '</main>';
   }
 
   function mqueueCount(sessionId) {
@@ -1053,7 +1055,7 @@
       '<button type="button" class="btn-join" data-act="joinSession">' + esc(T("joinBtn")) + '</button>' +
       '</div>' +
       '</div>';
-    return '<main class="screen hub-screen">' + h + '</main>';
+    return '<main class="screen hub-screen">' + h + SIGNATURE + '</main>';
   }
 
   function viewSummary() {

@@ -342,3 +342,4 @@ body.light-mode .cta-solo-save { background: #3B82F6; color: #FFFFFF; }
 
 
 .cta-discard { min-height: 48px; border-radius: 14px; border: 1px solid var(--line2); background: transparent; color: var(--bad); font-size: 15px; font-weight: 600; }
+.signature { margin: 8px 0 0; text-align: center; font-size: 12px; font-weight: 500; letter-spacing: 0.14em; color: var(--muted); opacity: 0.75; }
