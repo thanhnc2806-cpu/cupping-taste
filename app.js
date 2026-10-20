@@ -141,17 +141,11 @@
 
   function showError(code, retryable) { S.screen = "error"; S.errorCode = code; S.errorRetryable = !!retryable; render(); }
 
-  // Danh tính đã xác nhận PIN, nhớ trên máy. Khách chỉ giữ GUEST_ME_TTL_MS (cùng hạn mã khách).
-  var GUEST_ME_TTL_MS = 24 * 3600 * 1000;
+  // Danh tính + PIN chỉ nằm trong bộ nhớ trang: thoát/mở lại app là hiện lại "Bạn là ai?" và phải nhập PIN.
   var DEFAULT_STAFF = [
     { id: "Thanh", name: "Thanh (Head of Roaster)" }, { id: "MiMi", name: "Minh" }, { id: "Vinh", name: "Vinh" },
     { id: "B.An", name: "B.An" }, { id: "Tuấn Anh", name: "Tuấn Anh" }
   ];
-  function loadMe() {
-    var m = storeGet("cupping:me", null);
-    if (m && m.type === "guest" && !(m.at && Date.now() - m.at < GUEST_ME_TTL_MS)) return null;
-    return m && m.name ? m : null;
-  }
   function staffList() { return storeGet("cupping:staff", null) || DEFAULT_STAFF; }
   function refreshStaffList() {
     apiPost("listStaff", "-", "-").then(function (r) {
@@ -233,7 +227,7 @@
   function boot() {
     document.body.classList.toggle("light-mode", S.theme === "light");
     var link = readLink();
-    S.me = loadMe();
+    storeDel("cupping:me"); storeDel("cupping:spin"); // dọn bản cũ từng nhớ trên máy
     refreshStaffList();
     if (!S.me) {
       S.pendingLink = link; // mở phiên sau khi xác nhận PIN
@@ -1321,8 +1315,6 @@
   }
 
   function finishLogin() {
-    S.me.at = Date.now();
-    storeSet("cupping:me", S.me);
     S.identity = S.me;
     S.idPinDraft = "";
     var link = S.pendingLink;
@@ -1342,7 +1334,7 @@
       if (!p) { toast(T("needStaff")); return; }
       if (!pin) { toast(T("needPin")); return; }
       req = apiVerifyStaff(p.id, pin).then(function (r) {
-        if (r.ok) { S.me = { type: "staff", staff_id: p.id, name: p.name }; storeSet("cupping:spin", pin); }
+        if (r.ok) { S.me = { type: "staff", staff_id: p.id, name: p.name }; S.spin = pin; }
         return r;
       });
     } else {
@@ -1368,7 +1360,7 @@
   function changeUser() {
     if (!window.confirm(T("changeConfirm"))) return;
     if (S.sid) storeDel("cupping:table:" + S.sid); // lượt đã bấm Xong vẫn nằm trong cupping:queue và vẫn được gửi
-    storeDel("cupping:me"); storeDel("cupping:spin");
+    S.spin = "";
     Object.assign(S, sessionReset());
     S.sid = null; S.token = null; S.me = null; S.identity = null;
     S.pickStaff = null; S.guestNameDraft = ""; S.idPinDraft = "";
@@ -1381,7 +1373,7 @@
       toast(T("guestCannotSaveSolo"));
       return;
     }
-    var rememberedPin = storeGet("cupping:spin", "");
+    var rememberedPin = S.spin || "";
     if (rememberedPin) {
       submitSoloSave(rememberedPin);
     } else {
@@ -1410,7 +1402,7 @@
     apiSaveSolo(payload, cleanPin, S.identity.staff_id).then(function (r) {
       S.soloSaving = false;
       if (r && r.ok) {
-        storeSet("cupping:spin", cleanPin);
+        S.spin = cleanPin;
         S.pinModalOpen = false;
         S.pinModalError = "";
         S.pinDraft = "";
@@ -1423,7 +1415,7 @@
       } else {
         var err = r && r.error ? r.error : "UNKNOWN";
         if (err === "BAD_PIN") {
-          storeDel("cupping:spin");
+          S.spin = "";
           S.pinDraft = "";
           S.pinModalError = errorText(S.lang, "BAD_PIN");
           S.pinModalOpen = true;
