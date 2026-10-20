@@ -11,7 +11,7 @@
     theme: storeGet("cupping:theme", "dark") === "light" ? "light" : "dark",
     sid: null, token: null, sess: null, identity: null, table: null,
     screen: "loading", errorCode: "", errorRetryable: false,
-    role: "staff", pickStaff: null, guestNameDraft: "", idPinDraft: "", idPinBusy: false,
+    me: null, pendingLink: null, role: "staff", pickStaff: null, guestNameDraft: "", idPinDraft: "", idPinBusy: false,
     sheet: "", zoom: [], pending: null, q: 0, noteDraft: "",
     toastTimer: null, offline: false, lastWheel: null,
     soloCount: 5, joinDraft: "",
@@ -136,15 +136,36 @@
       S.soloLabels = storeGet("cupping:labels:" + S.sid, {}) || {};
       S.soloPurpose = (S.sess && S.sess.session && S.sess.session.purpose) || "QC nội bộ";
     }
-    S.screen = S.identity ? "table" : "entry";
+    S.screen = S.identity ? "table" : "login";
   }
 
   function showError(code, retryable) { S.screen = "error"; S.errorCode = code; S.errorRetryable = !!retryable; render(); }
 
+  // Danh tính đã xác nhận PIN, nhớ trên máy. Khách chỉ giữ GUEST_ME_TTL_MS (cùng hạn mã khách).
+  var GUEST_ME_TTL_MS = 24 * 3600 * 1000;
+  var DEFAULT_STAFF = [
+    { id: "Thanh", name: "Thanh (Head of Roaster)" }, { id: "MiMi", name: "Minh" }, { id: "Vinh", name: "Vinh" },
+    { id: "B.An", name: "B.An" }, { id: "Tuấn Anh", name: "Tuấn Anh" }
+  ];
+  function loadMe() {
+    var m = storeGet("cupping:me", null);
+    if (m && m.type === "guest" && !(m.at && Date.now() - m.at < GUEST_ME_TTL_MS)) return null;
+    return m && m.name ? m : null;
+  }
+  function staffList() { return storeGet("cupping:staff", null) || DEFAULT_STAFF; }
+  function refreshStaffList() {
+    apiPost("listStaff", "-", "-").then(function (r) {
+      if (r.ok && Array.isArray(r.staff) && r.staff.length) {
+        storeSet("cupping:staff", r.staff);
+        if (S.screen === "login") render();
+      }
+    });
+  }
+
   function openSession(sid, token) {
     Object.assign(S, sessionReset());
     S.sid = sid; S.token = token;
-    S.identity = storeGet("cupping:id:" + S.sid, null);
+    S.identity = S.me;
     var cached = storeGet("cupping:sess:" + S.sid, null);
     if (cached) {
       S.sess = cached;
@@ -191,13 +212,7 @@
         purpose: "QC nội bộ"
       },
       samples: samples,
-      staff: [
-        { id: "Thanh", name: "Thanh (Head of Roaster)" },
-        { id: "MiMi", name: "Minh" },
-        { id: "Vinh", name: "Vinh" },
-        { id: "B.An", name: "B.An" },
-        { id: "Tuấn Anh", name: "Tuấn Anh" }
-      ],
+      staff: staffList(),
       taxonomy: tax,
       taxonomy_version: taxVer
     };
@@ -205,9 +220,7 @@
     storeSet("cupping:last", { s: sid, t: "solo", name: sessName });
     trackVisit(sid, "solo", sessName);
 
-    // Không mặc định Thanh: chưa nhớ người nào thì startTable đưa sang màn chọn tên.
-    S.identity = resolveSoloIdentity(storeGet("cupping:id:solo", null), S.sess.staff);
-    if (S.identity) storeSet("cupping:id:" + sid, S.identity);
+    S.identity = S.me;
 
     S.soloLabels = {};
     S.soloPurpose = "QC nội bộ";
@@ -220,7 +233,13 @@
   function boot() {
     document.body.classList.toggle("light-mode", S.theme === "light");
     var link = readLink();
-    if (link) {
+    S.me = loadMe();
+    refreshStaffList();
+    if (!S.me) {
+      S.pendingLink = link; // mở phiên sau khi xác nhận PIN
+      S.screen = "login";
+      render();
+    } else if (link) {
       openSession(link.s, link.t);
     } else {
       S.screen = "hub";
@@ -257,7 +276,7 @@
   }
 
   function softRender() {
-    if (S.sheet !== "card" && S.screen !== "entry") {
+    if (S.sheet !== "card" && S.screen !== "login") {
       var act = document.activeElement;
       if (act && act.classList && act.classList.contains("measure-input")) return;
       render();
@@ -661,12 +680,12 @@
       '<input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" id="idPinInput" autocomplete="off" placeholder="••••••" value="' + esc(S.idPinDraft) + '"></label>';
   }
 
-  function viewEntry() {
-    var staff = S.sess.staff || [];
-    var h = '<div class="toprow"><button type="button" class="nav-hub-btn" data-act="goHub">‹ ' + esc(T("goHub")) + '</button>' + langToggle() + '</div>' +
-      '<p class="kicker">' + esc(purposeText(S.lang, S.sess.session.purpose)) + '</p>' +
-      '<h1 class="title">' + esc(S.sess.session.name) + '</h1>' +
-      '<p class="muted">' + esc(T("blindNote")) + '</p>' +
+  function viewLogin() {
+    var staff = staffList();
+    var h = '<div class="toprow"><span></span>' + langToggle() + '</div>' +
+      '<p class="kicker">INTENSO ROASTERY</p>' +
+      '<h1 class="title">' + esc(T("loginTitle")) + '</h1>' +
+      '<p class="muted">' + esc(T("loginHint")) + '</p>' +
       '<div class="label">' + esc(T("whoAreYou")) + '<div class="seg2">' +
       '<button type="button" class="role' + (S.role === "staff" ? " on" : "") + '" data-act="role" data-v="staff" aria-pressed="' + (S.role === "staff") + '">' + esc(T("staff")) + '</button>' +
       '<button type="button" class="role' + (S.role === "guest" ? " on" : "") + '" data-act="role" data-v="guest" aria-pressed="' + (S.role === "guest") + '">' + esc(T("guest")) + '</button></div></div>';
@@ -1012,6 +1031,7 @@
     var h = '<div class="toprow">' +
       '<div class="hub-brand"><span>INTENSO ROASTERY</span><b>' + esc(T("hubTitle")) + '</b></div>' +
       langToggle() + '</div>' +
+      '<button type="button" class="who" data-act="changeUser">' + esc(S.me.name) + ' · ' + esc(T("changeUser")) + '</button>' +
       '<div class="hub-hero">' +
       '<p class="kicker">LAB NẾM THỬ CÀ PHÊ</p>' +
       '<h1 class="title">' + esc(T("hubTitle")) + '</h1>' +
@@ -1273,7 +1293,7 @@
       : S.screen === "summary" ? viewSummary()
       : S.screen === "error" ? viewError()
       : S.screen === "loading" ? '<div class="center muted">' + esc(T("loading")) + '</div>'
-      : S.screen === "entry" ? viewEntry() : viewTable();
+      : S.screen === "login" ? viewLogin() : viewTable();
     root.innerHTML = h;
   }
 
@@ -1300,12 +1320,15 @@
     if (S.token !== "solo") sync();
   }
 
-  function finishEnter() {
-    storeSet("cupping:id:" + S.sid, S.identity);
-    if (S.token === "solo") storeSet("cupping:id:solo", S.identity);
+  function finishLogin() {
+    S.me.at = Date.now();
+    storeSet("cupping:me", S.me);
+    S.identity = S.me;
     S.idPinDraft = "";
-    S.screen = "table";
-    S.table = selectSample(S.table, nextUnsaved(S.table));
+    var link = S.pendingLink;
+    S.pendingLink = null;
+    if (link) { openSession(link.s, link.t); return; }
+    S.screen = "hub";
     render();
   }
 
@@ -1315,11 +1338,11 @@
     var pin = String(S.idPinDraft || "").trim();
     var req;
     if (S.role === "staff") {
-      var p = (S.sess.staff || []).filter(function (x) { return x.id === S.pickStaff; })[0];
+      var p = staffList().filter(function (x) { return x.id === S.pickStaff; })[0];
       if (!p) { toast(T("needStaff")); return; }
       if (!pin) { toast(T("needPin")); return; }
       req = apiVerifyStaff(p.id, pin).then(function (r) {
-        if (r.ok) { S.identity = { type: "staff", staff_id: p.id, name: p.name }; storeSet("cupping:spin", pin); }
+        if (r.ok) { S.me = { type: "staff", staff_id: p.id, name: p.name }; storeSet("cupping:spin", pin); }
         return r;
       });
     } else {
@@ -1327,26 +1350,29 @@
       if (!name) { toast(T("needName")); return; }
       if (!pin) { toast(T("needPin")); return; }
       req = apiVerifyGuest(pin).then(function (r) {
-        if (r.ok) S.identity = { type: "guest", guest_id: uuid(), name: name.slice(0, 40) }; // mã MỚI cho mỗi khách (spec §5.1)
+        if (r.ok) S.me = { type: "guest", guest_id: uuid(), name: name.slice(0, 40) }; // mã MỚI cho mỗi khách (spec §5.1)
         return r;
       });
     }
     S.idPinBusy = true; render();
     req.then(function (r) {
       S.idPinBusy = false;
-      if (r.ok) { finishEnter(); return; }
+      if (r.ok) { finishLogin(); return; }
       S.idPinDraft = "";
       toast(errorText(S.lang, r.error));
       render();
     });
   }
 
+  // Đổi người = đăng xuất về màn "Bạn là ai?"; vào lại phải nhập PIN của người mới.
   function changeUser() {
     if (!window.confirm(T("changeConfirm"))) return;
-    storeDel("cupping:id:" + S.sid);
-    storeDel("cupping:table:" + S.sid); // lượt đã bấm Xong vẫn nằm trong cupping:queue và vẫn được gửi
-    S.identity = null; S.table = null; S.pickStaff = null; S.guestNameDraft = ""; S.idPinDraft = "";
-    closeOverlay(); startTable(); render();
+    if (S.sid) storeDel("cupping:table:" + S.sid); // lượt đã bấm Xong vẫn nằm trong cupping:queue và vẫn được gửi
+    storeDel("cupping:me"); storeDel("cupping:spin");
+    Object.assign(S, sessionReset());
+    S.sid = null; S.token = null; S.me = null; S.identity = null;
+    S.pickStaff = null; S.guestNameDraft = ""; S.idPinDraft = "";
+    closeOverlay(); S.screen = "login"; render();
   }
 
   function handleSaveSolo() {
