@@ -669,7 +669,7 @@
     });
   }
 
-  var SIGNATURE = '<p class="signature">@thorangditour</p>';
+  var SIGNATURE = '<p class="signature">@thorang_ditour</p>';
 
   function idPinField(label) {
     return '<label class="label">' + esc(label) +
