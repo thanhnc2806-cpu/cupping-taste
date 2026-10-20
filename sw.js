@@ -1,5 +1,5 @@
 // Service Worker cho Cupping App — Đảm bảo đủ điều kiện cài đặt PWA & chạy offline mượt mà
-const CACHE_NAME = 'cupping-taste-v2';
+const CACHE_NAME = 'cupping-taste-v3';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -13,7 +13,22 @@ const ASSETS_TO_CACHE = [
   './config.js',
   './manifest.webmanifest',
   './icon-192.png',
-  './icon-512.png'
+  './icon-512.png',
+  './fonts/fira-latin-400.woff2',
+  './fonts/fira-latin-ext-400.woff2',
+  './fonts/fira-vietnamese-400.woff2',
+  './fonts/fira-latin-500.woff2',
+  './fonts/fira-latin-ext-500.woff2',
+  './fonts/fira-vietnamese-500.woff2',
+  './fonts/fira-latin-600.woff2',
+  './fonts/fira-latin-ext-600.woff2',
+  './fonts/fira-vietnamese-600.woff2',
+  './fonts/fira-latin-700.woff2',
+  './fonts/fira-latin-ext-700.woff2',
+  './fonts/fira-vietnamese-700.woff2',
+  './fonts/oswald-latin.woff2',
+  './fonts/oswald-latin-ext.woff2',
+  './fonts/oswald-vietnamese.woff2'
 ];
 
 self.addEventListener('install', (event) => {
