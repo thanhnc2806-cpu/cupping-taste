@@ -247,6 +247,7 @@
     setInterval(sync, 15000);
     setInterval(syncMeasure, 15000);
     setInterval(refreshSamples, 30000);
+    setInterval(function () { if (S.screen === "hub") loadOpenSessions(); }, 30000);
   }
 
   // Gọi getSession — tách khỏi boot() để gọi lại được (nút "Thử lại" hoặc sự kiện online).
@@ -1324,6 +1325,17 @@
     if (link) { openSession(link.s, link.t); return; }
     S.screen = "hub";
     render();
+    loadOpenSessions();
+  }
+
+  // Phiên Host đang mở → đưa vào "phiên hôm nay" của máy này, bấm là vào (không cần quét QR).
+  function loadOpenSessions() {
+    if (!S.me || !S.spin) return;
+    apiPost("listOpen", S.me.type === "staff" ? S.me.staff_id : "guest", S.spin).then(function (r) {
+      if (!r.ok || !Array.isArray(r.sessions)) return;
+      r.sessions.forEach(function (x) { trackVisit(x.id, x.token, x.name); });
+      if (S.screen === "hub") render();
+    });
   }
 
   // Chọn tên nào cũng phải có PIN của người đó (nhân viên) hoặc mã khách do Host cấp; máy chủ xác nhận.
@@ -1344,7 +1356,7 @@
       if (!name) { toast(T("needName")); return; }
       if (!pin) { toast(T("needPin")); return; }
       req = apiVerifyGuest(pin).then(function (r) {
-        if (r.ok) S.me = { type: "guest", guest_id: uuid(), name: name.slice(0, 40) }; // mã MỚI cho mỗi khách (spec §5.1)
+        if (r.ok) { S.me = { type: "guest", guest_id: uuid(), name: name.slice(0, 40) }; S.spin = pin; } // mã MỚI cho mỗi khách (spec §5.1)
         return r;
       });
     }
@@ -1526,7 +1538,7 @@
         submitSoloSave(pVal);
         break;
       case "discardSolo": discardSolo(); break;
-      case "goHub": S.screen = "hub"; render(); break;
+      case "goHub": S.screen = "hub"; render(); loadOpenSessions(); break;
       case "goSummary": S.screen = "summary"; render(); break;
       case "backToTable": S.screen = "table"; render(); break;
       case "copyReport": copyReportToClipboard(); break;
