@@ -1320,13 +1320,34 @@
     return '<div class="center"><div><p>' + esc(errorText(S.lang, S.errorCode)) + '</p>' + retryBtn + hubBtn + '<div style="margin-top:16px;">' + langToggle() + '</div></div></div>';
   }
 
+  // Bảng trượt đang mở thì đứng yên khi vẽ lại (không trượt lên lại sau mỗi lần chạm);
+  // vừa đóng thì trượt xuống thay vì biến mất — luật §3 .claude/rules/tieu_chuan_tham_my.md
+  var lastSheet = "";
   function render() {
     var h = S.screen === "hub" ? viewHub()
       : S.screen === "summary" ? viewSummary()
       : S.screen === "error" ? viewError()
       : S.screen === "loading" ? '<div class="center muted">' + esc(T("loading")) + '</div>'
       : S.screen === "login" ? viewLogin() : viewTable();
+    var oldSheet = root.querySelector(".sheet"), oldScrim = root.querySelector(".scrim");
+    var keepScroll = oldSheet ? oldSheet.scrollTop : 0;
     root.innerHTML = h;
+    var sheet = root.querySelector(".sheet"), scrim = root.querySelector(".scrim");
+    if (sheet && oldSheet) { sheet.classList.add("settled"); if (S.sheet === lastSheet) sheet.scrollTop = keepScroll; }
+    if (scrim && oldScrim) scrim.classList.add("settled");
+    if (oldSheet && !sheet && !reducedMotion()) leave([oldScrim, oldSheet]);
+    lastSheet = sheet ? S.sheet : "";
+  }
+  function reducedMotion() {
+    return typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+  function leave(nodes) {
+    nodes.forEach(function (n) {
+      if (!n) return;
+      n.classList.remove("settled"); n.classList.add("leaving"); n.setAttribute("aria-hidden", "true");
+      root.appendChild(n);
+      setTimeout(function () { if (n.parentNode) n.parentNode.removeChild(n); }, 260);
+    });
   }
 
   // ---------- thao tác ----------
@@ -1536,7 +1557,12 @@
         document.body.classList.toggle("light-mode", S.theme === "light");
         render();
         break;
-      case "setTableMode": S.tableMode = v; render(); break;
+      case "setTableMode":
+        var modeChanged = S.tableMode !== v;
+        S.tableMode = v; render();
+        var tabs = root.querySelector(".table-mode-tabs");
+        if (modeChanged && tabs) tabs.classList.add("switched"); // chỉ lúc đổi tab mới chạy hiệu ứng, vẽ lại thường thì không
+        break;
       case "saveMeasure": handleSaveMeasure(); break;
       case "copyIntenso":
         var copyTxt = el.getAttribute("data-text");
