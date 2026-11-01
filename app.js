@@ -940,7 +940,8 @@
 
   function viewSheet() {
     var d = draft(), code = sampleCode(S.table.cur), h;
-    var head = function (title) { return '<div class="sheet-head"><span>' + esc(title) + ' · ' + esc(code) + '</span><button type="button" data-act="close" aria-label="' + esc(T("close")) + '">×</button></div>'; };
+    var handle = '<div class="sheet-handle" aria-hidden="true"></div>';
+    var head = function (title) { return handle + '<div class="sheet-head"><span>' + esc(title) + ' · ' + esc(code) + '</span><button type="button" data-act="close" aria-label="' + esc(T("close")) + '">×</button></div>'; };
     if (S.sheet === "score" && !isGuest()) {
       h = head(T("scoreTitle")) + '<p class="muted small">' + esc(T("avgNote")) + '</p>';
       FIELDS.forEach(function (f) {
@@ -1647,5 +1648,8 @@
     }
   });
 
+  if (typeof document !== "undefined") {
+    document.addEventListener("touchstart", function () {}, { passive: true });
+  }
   boot();
 })();
