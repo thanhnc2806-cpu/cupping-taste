@@ -1,0 +1,253 @@
+/**
+ * Trạng thái bàn cupping — THUẦN (không DOM, không localStorage), test bằng node --test.
+ * Mọi hàm trả object MỚI, không sửa đầu vào → Undo/Redo giữ được bản cũ.
+ */
+var SCORE_FIELDS = ["fragrance_aroma", "flavor", "aftertaste", "acidity", "sweetness", "mouthfeel", "overall"];
+
+function clone_(x) { return JSON.parse(JSON.stringify(x)); }
+
+// JSON có khoá SẮP XẾP — để so hai bản nháp không phụ thuộc thứ tự thêm khoá.
+function canon_(x) {
+  if (Array.isArray(x)) return "[" + x.map(canon_).join(",") + "]";
+  if (x && typeof x === "object") {
+    return "{" + Object.keys(x).sort().map(function (k) { return JSON.stringify(k) + ":" + canon_(x[k]); }).join(",") + "}";
+  }
+  return JSON.stringify(x);
+}
+
+function emptyDraft() { return { scores: {}, descriptors: {}, defects: {}, note: "" }; }
+
+function createTable(sampleIds, drafts, saved) {
+  var d = {}, s = {};
+  sampleIds.forEach(function (id) { d[id] = drafts && drafts[id] ? clone_(drafts[id]) : emptyDraft(); });
+  if (saved) Object.keys(saved).forEach(function (id) { if (d[id]) s[id] = clone_(saved[id]); });
+  return { order: sampleIds.slice(), cur: sampleIds.length ? sampleIds[0] : null, drafts: d, saved: s, undo: [], redo: [] };
+}
+
+function addSamples(t, sampleIds) {
+  var n = clone_(t);
+  sampleIds.forEach(function (id) { if (!n.drafts[id]) { n.drafts[id] = emptyDraft(); n.order.push(id); } });
+  if (!n.cur && n.order.length) n.cur = n.order[0];
+  return n;
+}
+
+function editCurrent(t, mutate) {
+  var n = clone_(t);
+  n.undo.push(clone_(n.drafts[n.cur]));
+  mutate(n.drafts[n.cur]);
+  n.redo = [];
+  return n;
+}
+
+function undo(t) {
+  if (!t.undo.length) return t;
+  var n = clone_(t);
+  n.redo.push(n.drafts[n.cur]);
+  n.drafts[n.cur] = n.undo.pop();
+  return n;
+}
+
+function redo(t) {
+  if (!t.redo.length) return t;
+  var n = clone_(t);
+  n.undo.push(n.drafts[n.cur]);
+  n.drafts[n.cur] = n.redo.pop();
+  return n;
+}
+
+function selectSample(t, id) {
+  if (!t.drafts[id]) return t;
+  var n = clone_(t);
+  n.cur = id; n.undo = []; n.redo = [];
+  return n;
+}
+
+function setScore(field, value) { return function (d) { d.scores[field] = value; }; }
+function setDescriptor(code, intensity) { return function (d) { d.descriptors[code] = intensity; }; }
+function removeDescriptor(code) { return function (d) { delete d.descriptors[code]; }; }
+function toggleDefect(code) { return function (d) { if (d.defects[code]) delete d.defects[code]; else d.defects[code] = true; }; }
+function setNote(text) { return function (d) { d.note = String(text || "").slice(0, 500); }; }
+function setVibe(vibe) { return function (d) { if (vibe) d.vibe = vibe; else delete d.vibe; }; }
+
+function missingScores(d) {
+  return SCORE_FIELDS.filter(function (f) { return typeof d.scores[f] !== "number"; });
+}
+
+function liveAverage(d) {
+  var v = SCORE_FIELDS.map(function (f) { return d.scores[f]; }).filter(function (x) { return typeof x === "number"; });
+  return v.length ? v.reduce(function (a, b) { return a + b; }, 0) / v.length : null;
+}
+
+function hasData_(d) {
+  return Object.keys(d.scores).length > 0 || Object.keys(d.descriptors).length > 0 || Object.keys(d.defects).length > 0 || !!d.note || !!d.vibe;
+}
+
+function sampleStatus(t, id) {
+  var d = t.drafts[id];
+  if (t.saved[id] && canon_(t.saved[id].draft) === canon_(d)) return "saved";
+  return hasData_(d) ? "wip" : "new";
+}
+
+function markSaved(t, id, revision) {
+  var n = clone_(t);
+  n.saved[id] = { draft: clone_(n.drafts[id]), avg: liveAverage(n.drafts[id]), revision: revision };
+  return n;
+}
+
+function unmarkSaved(t, id, revision) {
+  if (!t.saved[id] || t.saved[id].revision !== revision) return t;
+  var n = clone_(t);
+  delete n.saved[id];
+  return n;
+}
+
+function nextUnsaved(t) {
+  for (var i = 0; i < t.order.length; i++) if (sampleStatus(t, t.order[i]) !== "saved") return t.order[i];
+  return t.cur;
+}
+
+function buildEntry(d, identity, sampleId, revision) {
+  var e = { sample_id: sampleId };
+  if (identity.type === "staff") { e.taster_type = "Nhân viên"; e.staff_id = identity.staff_id; }
+  else { e.taster_type = "Khách"; e.guest_id = identity.guest_id; e.guest_name = identity.name; }
+  e.scores = {};
+  SCORE_FIELDS.forEach(function (f) { e.scores[f] = d.scores[f]; });
+  e.descriptors = Object.keys(d.descriptors).sort().map(function (c) { return { code: c, intensity: d.descriptors[c] }; });
+  e.defects = Object.keys(d.defects).filter(function (c) { return d.defects[c]; }).sort();
+  e.note = d.note || "";
+  e.client_revision = revision;
+  return e;
+}
+
+function nextRevision(last, now) { return Math.max(now, (last || 0) + 1); }
+
+function tasterOf_(entry) { return entry.staff_id ? "NV:" + entry.staff_id : "K:" + entry.guest_id; }
+
+function queueUpsert(queue, item) {
+  return queue.filter(function (q) {
+    return !(q.session_id === item.session_id && q.entry.sample_id === item.entry.sample_id && tasterOf_(q.entry) === tasterOf_(item.entry));
+  }).concat([item]);
+}
+
+function queueAck(queue, sessionId, sampleId, revision) {
+  return queue.filter(function (q) {
+    return !(q.session_id === sessionId && q.entry.sample_id === sampleId && q.entry.client_revision === revision);
+  });
+}
+
+function isRetryable(code) { return code === "NETWORK" || code === "SERVER_ERROR"; }
+
+// ===== T6 p1 — số đo màu/TDS, phiên hôm nay, lưu Cupping tự do =====
+var MEASURE_KEYS_ = ["bean", "ground", "tds"];
+function isNum_(v) { return typeof v === "number" && isFinite(v); }
+
+// Bàn phím Việt gõ "1,35" — nhận cả dấu phẩy lẫn dấu chấm. Không phải số → null.
+function parseDecimalInput(str) {
+  var s = String(str === undefined || str === null ? "" : str).trim().replace(",", ".");
+  if (!/^\d+(\.\d+)?$/.test(s)) return null;
+  return Number(s);
+}
+
+function measureChipState(measure) {
+  var n = MEASURE_KEYS_.filter(function (k) { return isNum_(measure && measure[k]); }).length;
+  return n === 3 ? "full" : n ? "partial" : "none";
+}
+
+function groundBelowBean(measure) { return isNum_(measure.bean) && isNum_(measure.ground) && measure.ground < measure.bean; }
+
+function sameMeasureItem_(q, sessionId, sampleId) { return q.session_id === sessionId && q.measure.sample_id === sampleId; }
+
+function measureQueueUpsert(queue, item) {
+  var old = null;
+  var rest = queue.filter(function (q) {
+    if (sameMeasureItem_(q, item.session_id, item.measure.sample_id)) { old = q; return false; }
+    return true;
+  });
+  var merged = clone_(item);
+  if (old) MEASURE_KEYS_.forEach(function (k) { if (!isNum_(merged.measure[k]) && isNum_(old.measure[k])) merged.measure[k] = old.measure[k]; });
+  return rest.concat([merged]);
+}
+
+function measureQueueAck(queue, sessionId, sampleId, sentMeasure) {
+  return queue.filter(function (q) {
+    if (!sameMeasureItem_(q, sessionId, sampleId)) return true;
+    return MEASURE_KEYS_.some(function (k) { return (q.measure[k] === undefined ? "" : q.measure[k]) !== (sentMeasure[k] === undefined ? "" : sentMeasure[k]); });
+  });
+}
+
+var VISITS_MAX = 20;
+function recordVisit(visits, visit, todayStr) {
+  return visitsToday(visits, todayStr).filter(function (v) { return v.s !== visit.s; }).concat([visit]).slice(-VISITS_MAX);
+}
+function visitsToday(visits, todayStr) { return (visits || []).filter(function (v) { return v.date === todayStr; }); }
+
+// Cả phiên tự do một lần; entries = mẫu đã đủ 7 điểm.
+function buildSoloPayload(sess, table, identity, labels, purpose, revision) {
+  var samples = sess.samples.map(function (s) {
+    return { sample_id: s.sample_id, blind_code: s.blind_code, label: String((labels && labels[s.sample_id]) || "").trim().slice(0, 60) };
+  });
+  var entries = table.order.filter(function (id) { return missingScores(table.drafts[id]).length === 0; })
+    .map(function (id) { return buildEntry(table.drafts[id], identity, id, revision); });
+  return { session_id: sess.session.id, solo: { name: sess.session.name, purpose: purpose, samples: samples, entries: entries } };
+}
+
+// Chuyển phiên (Hub → phiên khác): bỏ trạng thái của phiên trước để startTable nạp đúng bàn đã lưu của phiên mới.
+function sessionReset() { return { table: null, sess: null, measureDrafts: {}, tableMode: null, soloSavedAt: null }; }
+
+// Người đã nhớ cho phiên tự do: chỉ nhận nhân viên có trong danh sách (mã cũ thường → mã thật); không có thì null (bắt chọn tên).
+var LEGACY_STAFF_IDS = { thanh: "Thanh", minh: "MiMi", an: "B.An", vinh: "Vinh" };
+function resolveSoloIdentity(saved, staff) {
+  if (!saved || saved.type !== "staff") return null;
+  var id = Object.prototype.hasOwnProperty.call(LEGACY_STAFF_IDS, saved.staff_id) ? LEGACY_STAFF_IDS[saved.staff_id] : saved.staff_id;
+  var p = (staff || []).filter(function (x) { return x.id === id; })[0];
+  return p ? { type: "staff", staff_id: p.id, name: p.name } : null;
+}
+
+// Danh tính hiển thị của mẫu: Nếm mù (chưa đóng) giấu tên; Nếm mở hoặc đã đóng hiện tên sản phẩm + ngày rang.
+function sampleDisplayInfo(sample, session, lang) {
+  var isVi = lang !== "en";
+  var isBlind = !!(session && session.blind && !session.closed);
+  var code = (sample && (sample.blind_code || sample.code)) || "?";
+  if (isBlind) {
+    return {
+      title: code,
+      shortTitle: code,
+      kicker: isVi ? "Nếm mù" : "Blind",
+      code: code,
+      badge: code,
+      isBlind: true
+    };
+  }
+  var prod = (sample && sample.product_line) || "";
+  var date = (sample && sample.roasted_label) || "";
+  var dateShort = date ? date.replace(/\/\d{4}$/, "") : "";
+  var title = prod || (sample && sample.label) || code;
+  var shortTitle = prod ? (prod + (dateShort ? " · " + dateShort : "")) : title;
+  var kicker = date || (isVi ? "Nếm mở" : "Open Cupping");
+  var badge = (isVi ? "Mã: " : "Code: ") + code;
+  return {
+    title: title,
+    shortTitle: shortTitle,
+    kicker: kicker,
+    code: code,
+    badge: badge,
+    isBlind: false
+  };
+}
+
+if (typeof module !== "undefined") {
+  module.exports = {
+    SCORE_FIELDS: SCORE_FIELDS, emptyDraft: emptyDraft, createTable: createTable, addSamples: addSamples,
+    editCurrent: editCurrent, undo: undo, redo: redo, selectSample: selectSample,
+    setScore: setScore, setDescriptor: setDescriptor, removeDescriptor: removeDescriptor, toggleDefect: toggleDefect, setNote: setNote, setVibe: setVibe,
+    missingScores: missingScores, liveAverage: liveAverage, sampleStatus: sampleStatus,
+    markSaved: markSaved, unmarkSaved: unmarkSaved, nextUnsaved: nextUnsaved,
+    buildEntry: buildEntry, nextRevision: nextRevision,
+    queueUpsert: queueUpsert, queueAck: queueAck, isRetryable: isRetryable,
+    parseDecimalInput: parseDecimalInput, measureChipState: measureChipState, groundBelowBean: groundBelowBean,
+    measureQueueUpsert: measureQueueUpsert, measureQueueAck: measureQueueAck,
+    sessionReset: sessionReset, resolveSoloIdentity: resolveSoloIdentity,
+    recordVisit: recordVisit, visitsToday: visitsToday, buildSoloPayload: buildSoloPayload,
+    sampleDisplayInfo: sampleDisplayInfo
+  };
+}
