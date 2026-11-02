@@ -698,6 +698,7 @@
   function viewLogin() {
     var staff = staffList();
     var h = '<div class="toprow"><span></span>' + langToggle() + '</div>' +
+      '<div style="display:flex; justify-content:center; margin:8px 0 14px;"><img src="logo-mark.png" alt="Cupping Lab" style="width:64px; height:64px; border-radius:18px; box-shadow:0 8px 24px rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.12);"></div>' +
       '<p class="kicker">@THORANG_DITOUR · CUPPING LAB</p>' +
       '<h1 class="title">' + esc(T("loginTitle")) + '</h1>' +
       '<p class="muted">' + esc(T("loginHint")) + '</p>' +
@@ -1052,7 +1053,7 @@
     }).join("");
 
     var h = '<div class="toprow">' +
-      '<div class="hub-brand" style="display:flex; flex-direction:column;"><div style="display:flex; align-items:center; gap:6px;"><img src="logo-compact.svg" alt="" style="height:16px; width:auto; vertical-align:middle;"><span>@THORANG_DITOUR</span></div><b>' + esc(T("hubTitle")) + '</b></div>' +
+      '<div class="hub-brand" style="display:flex; align-items:center; gap:10px;"><img src="logo-mark.png" alt="Cupping Lab" style="width:38px; height:38px; border-radius:10px; box-shadow:0 4px 14px rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); flex-shrink:0;"><div style="display:flex; flex-direction:column;"><div style="display:flex; align-items:center; gap:6px;"><span style="font-size:10px; font-weight:700; letter-spacing:0.12em; color:#E8222A;">@THORANG_DITOUR</span></div><b style="font-size:17px; line-height:1.1;">' + esc(T("hubTitle")) + '</b></div></div>' +
       langToggle() + '</div>' +
       '<button type="button" class="who" data-act="changeUser">' + esc(S.me.name) + ' · ' + esc(T("changeUser")) + '</button>' +
       '<div class="hub-hero">' +
