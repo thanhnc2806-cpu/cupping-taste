@@ -1,5 +1,5 @@
 // Service Worker cho Cupping App — Đảm bảo đủ điều kiện cài đặt PWA & chạy offline mượt mà
-const CACHE_NAME = 'cupping-taste-v7';
+const CACHE_NAME = 'cupping-taste-v8';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -14,6 +14,9 @@ const ASSETS_TO_CACHE = [
   './manifest.webmanifest',
   './icon-bx-192.png',
   './icon-bx-512.png',
+  './logo-lockup.svg',
+  './logo-compact.svg',
+  './logo-seal.svg',
   './fonts/fira-latin-400.woff2',
   './fonts/fira-latin-ext-400.woff2',
   './fonts/fira-vietnamese-400.woff2',

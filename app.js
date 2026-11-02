@@ -688,7 +688,7 @@
     });
   }
 
-  var SIGNATURE = '<p class="signature">@thorang_ditour</p>';
+  var SIGNATURE = '<div class="signature-block" style="text-align:center; margin:16px 0 8px; opacity:0.8;"><img src="logo-compact.svg" alt="@thorang_ditour" style="height:18px; width:auto; display:inline-block; opacity:0.75;"><p class="signature" style="margin-top:4px;">@thorang_ditour</p></div>';
 
   function idPinField(label) {
     return '<label class="label">' + esc(label) +
@@ -698,7 +698,7 @@
   function viewLogin() {
     var staff = staffList();
     var h = '<div class="toprow"><span></span>' + langToggle() + '</div>' +
-      '<p class="kicker">INTENSO ROASTERY</p>' +
+      '<p class="kicker">@THORANG_DITOUR · CUPPING LAB</p>' +
       '<h1 class="title">' + esc(T("loginTitle")) + '</h1>' +
       '<p class="muted">' + esc(T("loginHint")) + '</p>' +
       '<div class="label">' + esc(T("whoAreYou")) + '<div class="seg2">' +
@@ -1052,7 +1052,7 @@
     }).join("");
 
     var h = '<div class="toprow">' +
-      '<div class="hub-brand"><span>INTENSO ROASTERY</span><b>' + esc(T("hubTitle")) + '</b></div>' +
+      '<div class="hub-brand" style="display:flex; flex-direction:column;"><div style="display:flex; align-items:center; gap:6px;"><img src="logo-compact.svg" alt="" style="height:16px; width:auto; vertical-align:middle;"><span>@THORANG_DITOUR</span></div><b>' + esc(T("hubTitle")) + '</b></div>' +
       langToggle() + '</div>' +
       '<button type="button" class="who" data-act="changeUser">' + esc(S.me.name) + ' · ' + esc(T("changeUser")) + '</button>' +
       '<div class="hub-hero">' +
@@ -1196,7 +1196,7 @@
       '<button type="button" class="nav-hub-btn" data-act="goHub">🏠 ' + esc(T("goHub")) + '</button>' +
       '</div>' +
       '<div class="summary-hero">' +
-      '<p class="kicker">INTENSO ROASTERY · CUPPING LAB</p>' +
+      '<p class="kicker">@THORANG_DITOUR · ATELIER SPEC · WCRC BENCHMARK</p>' +
       '<h1 class="title">' + esc(T("summaryTitle")) + '</h1>' +
       '<p class="muted">' + esc(sessName) + (tasterName ? ' · ' + esc(tasterName) : '') + '</p>' +
       '</div>' +

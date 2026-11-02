@@ -1,14 +1,14 @@
 {
-  "name": "Cupping — Đánh giá Cảm quan",
+  "name": "Cupping Lab · @thorang_ditour",
   "short_name": "Cupping",
-  "description": "Ứng dụng cupping và đánh giá cảm quan cà phê phòng rang Intenso",
+  "description": "Ứng dụng cupping và đánh giá cảm quan cà phê @thorang_ditour (WCRC Benchmark)",
   "lang": "vi",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#1B1E1A",
-  "theme_color": "#0A1B2B",
+  "background_color": "#080A0C",
+  "theme_color": "#080A0C",
   "icons": [
     {
       "src": "icon-bx-192.png",
