@@ -1,5 +1,5 @@
 // Service Worker cho Cupping App — Đảm bảo đủ điều kiện cài đặt PWA & chạy offline mượt mà
-const CACHE_NAME = 'cupping-taste-v5';
+const CACHE_NAME = 'cupping-taste-v6';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

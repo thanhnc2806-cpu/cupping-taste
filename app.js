@@ -351,17 +351,15 @@
     var cx = 140, cy = 90, maxR = 64;
     var n = SCORE_FIELDS.length;
     var html = '';
-    var ringColor = isLight ? '#DDD6CC' : '#2A303C';
-    var textColor = isLight ? '#555555' : '#C5BCB2';
+    var ringColor = isLight ? 'rgba(8,10,12,0.14)' : 'rgba(255,255,255,0.14)';
+    var textColor = isLight ? '#080A0C' : '#F5F5F7';
     for (var r = 1; r <= 3; r++) {
       var curR = (maxR / 3) * r;
-      var pts = [];
-      for (var i = 0; i < n; i++) {
-        var angle = (Math.PI * 2 / n) * i - Math.PI / 2;
-        pts.push((cx + curR * Math.cos(angle)).toFixed(1) + "," + (cy + curR * Math.sin(angle)).toFixed(1));
-      }
-      html += '<polygon points="' + pts.join(' ') + '" fill="none" stroke="' + ringColor + '" stroke-width="1" />';
+      html += '<circle cx="' + cx + '" cy="' + cy + '" r="' + curR.toFixed(1) + '" fill="none" stroke="' + ringColor + '" stroke-width="1" />';
     }
+    // Porsche Redline telemetry limit arc
+    html += '<circle cx="' + cx + '" cy="' + cy + '" r="' + maxR + '" fill="none" stroke="' + (isLight ? 'rgba(197,26,32,0.6)' : '#E8222A') + '" stroke-width="1.8" stroke-dasharray="4, 8" opacity="0.65" />';
+
     SCORE_FIELDS.forEach(function (f, i) {
       var angle = (Math.PI * 2 / n) * i - Math.PI / 2;
       var x = cx + maxR * Math.cos(angle);
@@ -371,7 +369,7 @@
       var ty = cy + (maxR + 11) * Math.sin(angle);
       var fieldObj = FIELDS.filter(function (x) { return x.key === f; })[0];
       var lbl = fieldObj ? (S.lang === "en" ? fieldObj.short_en : fieldObj.short_vi) : f;
-      html += '<text x="' + tx.toFixed(1) + '" y="' + ty.toFixed(1) + '" fill="' + textColor + '" font-size="9" font-weight="600" text-anchor="middle" dominant-baseline="middle">' + esc(lbl) + '</text>';
+      html += '<text x="' + tx.toFixed(1) + '" y="' + ty.toFixed(1) + '" fill="' + textColor + '" font-size="9" font-family="Oswald, sans-serif" font-weight="700" text-anchor="middle" dominant-baseline="middle">' + esc(lbl.toUpperCase()) + '</text>';
     });
     var hasAny = false;
     var dataPts = [];
@@ -383,12 +381,14 @@
       dataPts.push((cx + valR * Math.cos(angle)).toFixed(1) + "," + (cy + valR * Math.sin(angle)).toFixed(1));
     });
     if (hasAny) {
-      html += '<polygon points="' + dataPts.join(' ') + '" fill="rgba(82, 183, 136, 0.28)" stroke="#52B788" stroke-width="2" />';
+      html += '<polygon points="' + dataPts.join(' ') + '" fill="' + (isLight ? 'rgba(30,130,76,0.22)' : 'rgba(245,245,247,0.22)') + '" stroke="' + (isLight ? '#1E824C' : '#F5F5F7') + '" stroke-width="2.2" filter="drop-shadow(0 0 8px ' + (isLight ? 'rgba(30,130,76,0.35)' : 'rgba(255,255,255,0.45)') + ')" />';
       SCORE_FIELDS.forEach(function (f, i) {
         if (typeof scores[f] === "number") {
           var angle = (Math.PI * 2 / n) * i - Math.PI / 2;
           var valR = (scores[f] / 9) * maxR;
-          html += '<circle cx="' + (cx + valR * Math.cos(angle)).toFixed(1) + '" cy="' + (cy + valR * Math.sin(angle)).toFixed(1) + '" r="3.5" fill="#52B788" stroke="#FFF" stroke-width="1.2" />';
+          var isRedline = scores[f] >= 8.5;
+          var ptColor = isRedline ? (isLight ? '#C51A20' : '#E8222A') : (isLight ? '#1E824C' : '#F5F5F7');
+          html += '<circle cx="' + (cx + valR * Math.cos(angle)).toFixed(1) + '" cy="' + (cy + valR * Math.sin(angle)).toFixed(1) + '" r="' + (isRedline ? "3.6" : "3.2") + '" fill="' + ptColor + '" stroke="' + (isLight ? '#FFF' : '#080A0C') + '" stroke-width="1.4" />';
         }
       });
     }
